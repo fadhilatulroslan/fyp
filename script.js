@@ -3113,7 +3113,7 @@ async function logout() {
     stopCamera();
 
     window.location.href =
-      "login.html";
+      "index.html";
 
   } catch (error) {
     showToast(
