@@ -392,6 +392,7 @@ function setMonitoringBadge(label, online) {
 function showOffline(message) {
   currentStatus = "UNKNOWN";
   lastReadingFresh = false;
+  updateChart([]);
 
   const hasRecord = Boolean(currentSensor);
 
@@ -586,6 +587,10 @@ function startRefreshTimers() {
   }, CONFIG.refreshInterval);
 
   countdownTimer = setInterval(() => {
+    if (lastReadingFresh && isReadingStale(currentSensor)) {
+      showOffline("ESP32 has not sent a recent valid reading.");
+    }
+
     countdown = Math.max(
       0,
       countdown - 1
@@ -1186,7 +1191,12 @@ function initializeChart() {
 function updateChart(records = allSensors) {
   if (!sensorChart) return;
 
-  const selected = records
+  // Never show saved readings as a live graph while monitoring is offline.
+  const liveRecords = lastReadingFresh && !isReadingStale(currentSensor)
+    ? records
+    : [];
+
+  const selected = liveRecords
     .slice(0, currentChartPeriod)
     .reverse();
 
