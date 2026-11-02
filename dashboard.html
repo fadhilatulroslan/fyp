@@ -1214,10 +1214,10 @@
 
         <i class="ti ti-camera"></i>
 
-        <h2>ESP32-S3 Security Camera</h2>
+        <h2>ESP32-S3 Live Camera</h2>
 
         <span class="section-hint">
-          Live monitoring and image capture
+          Live monitoring
         </span>
 
       </div>
@@ -1239,8 +1239,6 @@
           </video>
 
 
-          <canvas id="cameraCanvas"
-                  style="display:none;"></canvas>
 
 
           <div class="camera-placeholder"
@@ -1259,18 +1257,6 @@
           </div>
 
 
-          <div id="capturedPreview"
-               class="captured-preview"
-               style="display:none;">
-
-            <img id="capturedImage"
-                 alt="Captured image from GLiPS ESP32-S3 camera">
-
-            <span id="captureTime">
-              --
-            </span>
-
-          </div>
 
         </div>
 
@@ -1305,33 +1291,13 @@
                     id="cameraToggleBtn">
 
               <i class="ti ti-camera"></i>
-              Start
+              Start Live Monitoring
 
             </button>
 
 
-            <button class="btn-capture"
-                    type="button"
-                    onclick="captureImage()"
-                    id="captureBtn"
-                    disabled>
-
-              <i class="ti ti-photo"></i>
-              Capture
-
-            </button>
 
 
-            <button class="btn-capture"
-                    type="button"
-                    onclick="sendCapturedImageToTelegram()"
-                    id="sendPhotoBtn"
-                    disabled>
-
-              <i class="ti ti-brand-telegram"></i>
-              Send to Telegram
-
-            </button>
 
           </div>
 
@@ -1361,23 +1327,13 @@
             </div>
 
 
-            <div class="camera-info-item">
-
-              <span>Last Capture</span>
-
-              <strong id="camLastCapture">
-                --
-              </strong>
-
-            </div>
 
           </div>
 
 
           <p class="camera-note">
             Camera access requires a reachable ESP32-S3
-            connection. Images are captured from the
-            ESP32 camera, not the laptop webcam.
+            connection. The live feed comes from the ESP32 camera.
           </p>
 
         </div>

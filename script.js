@@ -31,8 +31,6 @@ const CONFIG = {
 
   telegramAlertEndpoint: "",
 
-  telegramPhotoEndpoint: "",
-
   enableBackendActions: true
 };
 
@@ -50,8 +48,7 @@ const THRESHOLD = {
    ===================================================== */
 
 const CAMERA = {
-  stream: `http://${CONFIG.cameraIP}:81/stream`,
-  capture: `http://${CONFIG.cameraIP}/capture`
+  stream: `http://${CONFIG.cameraIP}:81/stream`
 };
 
 /* =====================================================
@@ -74,7 +71,6 @@ let isSoundOn = true;
 let isAIWorking = false;
 
 let cameraImageElement = null;
-let capturedImageData = null;
 
 let alertHistory = [];
 let historyLastLoadedAt = 0;
@@ -2035,12 +2031,9 @@ async function toggleCamera() {
 
     if (button) {
       button.innerHTML =
-        '<i class="ti ti-camera-off"></i> Stop Camera';
+        '<i class="ti ti-camera-off"></i> Stop Live Monitoring';
     }
 
-    if ($("captureBtn")) {
-      $("captureBtn").disabled = false;
-    }
 
     addEvent(
       "info",
@@ -2087,120 +2080,14 @@ function stopCamera() {
 
   if ($("cameraToggleBtn")) {
     $("cameraToggleBtn").innerHTML =
-      '<i class="ti ti-camera"></i> Start Camera';
+      '<i class="ti ti-camera"></i> Start Live Monitoring';
   }
 
-  if ($("captureBtn")) {
-    $("captureBtn").disabled = true;
-  }
 
   cameraStatus(
     false,
     "Offline"
   );
-}
-
-/* =====================================================
-   CAPTURE CAMERA IMAGE
-   ===================================================== */
-
-async function captureImage() {
-  if (!isCameraOn) {
-    showToast(
-      "Start camera first.",
-      "warning"
-    );
-
-    return;
-  }
-
-  try {
-    const response = await fetch(
-      `${CAMERA.capture}?t=${Date.now()}`,
-      {
-        cache: "no-store"
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        `HTTP ${response.status}`
-      );
-    }
-
-    const blob = await response.blob();
-
-    if (!blob.type.startsWith("image/")) {
-      throw new Error(
-        "Invalid image response."
-      );
-    }
-
-    capturedImageData = await new Promise(
-      (resolve, reject) => {
-        const reader = new FileReader();
-
-        reader.onload = () =>
-          resolve(reader.result);
-
-        reader.onerror = reject;
-
-        reader.readAsDataURL(blob);
-      }
-    );
-
-    const preview = $("capturedPreview");
-
-    if ($("capturedImage")) {
-      $("capturedImage").src =
-        capturedImageData;
-    }
-
-    if (preview) {
-      preview.style.display = "flex";
-      preview.classList.add("show");
-    }
-
-    const time = formatTimeOnly(
-      new Date()
-    );
-
-    setText(
-      "captureTime",
-      `Captured: ${time}`
-    );
-
-    setText(
-      "camLastCapture",
-      time
-    );
-
-    if ($("sendPhotoBtn")) {
-      $("sendPhotoBtn").disabled = false;
-    }
-
-    showToast(
-      "Image captured successfully.",
-      "success"
-    );
-
-    addEvent(
-      "info",
-      "Camera image captured."
-    );
-
-  } catch (error) {
-    console.error(
-      "[GLiPS] Camera capture:",
-      error
-    );
-
-    showToast(
-      `Camera capture failed: ${error.message}`,
-      "danger",
-      6000
-    );
-  }
 }
 
 /* =====================================================
@@ -2364,48 +2251,6 @@ async function testTelegram() {
 }
 
 /* =====================================================
-   SEND CAPTURED IMAGE TO TELEGRAM
-   ===================================================== */
-
-async function sendCapturedImageToTelegram() {
-  if (!capturedImageData) {
-    showToast(
-      "Capture an image first.",
-      "warning"
-    );
-
-    return;
-  }
-
-  try {
-    await callBackend(
-      CONFIG.telegramPhotoEndpoint,
-      {
-        image: capturedImageData,
-
-        status: currentStatus,
-
-        gas_ppm: numberOrNull(
-          currentSensor?.gas_ppm
-        )
-      }
-    );
-
-    showToast(
-      "Photo sent to Telegram.",
-      "success"
-    );
-
-  } catch (error) {
-    showToast(
-      `Photo upload: ${error.message}`,
-      "warning",
-      6000
-    );
-  }
-}
-
-/* =====================================================
    GET TELEGRAM CHAT ID
    ===================================================== */
 
@@ -2413,20 +2258,6 @@ function getChatId() {
   return $("telegramChatId")
     ?.value?.trim() || "";
 }
-
-/* =====================================================
-   AUTOMATIC CAMERA CAPTURE ON DANGER
-   ===================================================== */
-
-async function autoCaptureOnDanger() {
-  // Automatic capture should run on ESP32/backend
-  // so it works even when dashboard is closed.
-
-  console.info(
-    "[GLiPS] Automatic camera capture requires device/backend integration."
-  );
-}
-
 
 /* =====================================================
    GLiPS DASHBOARD
