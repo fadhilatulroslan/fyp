@@ -1,0 +1,612 @@
+/* GLiPS Login | Organized CSS + viewport-fit fix */
+
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap");
+:root {
+  --ink: #142b37;
+  --muted: #74858c;
+  --line: #dce5e7;
+  --blue: #0d6682;
+  --gold: #d6b66f;
+}
+* {
+  box-sizing: border-box;
+}
+html,body {
+  margin: 0;
+  min-height: 100%;
+  font-family: "DM Sans",Arial,sans-serif;
+}
+body {
+  background: #e8eef0;
+  color: var(--ink);
+}
+button,input {
+  font: inherit;
+}
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0,1.18fr) minmax(390px,.82fr);
+  min-height: 100vh;
+}
+.story-panel {
+  background: #102d3b;
+  color: #fff;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  padding: 38px clamp(32px,4.5vw,76px) 28px;
+}
+.story-panel:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 78% 38%,rgba(44,108,128,.25),transparent 52%);
+  pointer-events: none;
+}
+.masthead,.story-footer,.story-content {
+  position: relative;
+  z-index: 1;
+}
+.masthead,.story-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 800 26px "Manrope",sans-serif;
+  letter-spacing: -1.5px;
+}
+.identity-mark {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255,255,255,.24);
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: #e6c77f;
+  font-size: 20px;
+}
+.identity-dot {
+  color: var(--gold);
+}
+.edition,.story-footer,.access-code {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+}
+.edition {
+  color: #b7ccd3;
+}
+.edition span {
+  color: #d6b66f;
+}
+.story-content {
+  margin: auto 0;
+  padding: 65px 0 55px;
+  max-width: 780px;
+}
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: #d6b66f;
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+.eyebrow-line {
+  height: 1px;
+  width: 27px;
+  background: #d6b66f;
+}
+.story-content h1 {
+  font: 800 clamp(40px,4.6vw,76px)/1.1 "Manrope",sans-serif;
+  letter-spacing: -3px;
+  margin: 24px 0 17px;
+}
+.story-content h1 em {
+  font-style: normal;
+  color: #d6b66f;
+}
+.intro {
+  color: #bdd0d6;
+  line-height: 1.75;
+  font-size: 15px;
+  max-width: 420px;
+  margin: 0 0 30px;
+}
+.scene {
+  border: 1px solid rgba(170,206,215,.24);
+  border-radius: 12px;
+  background: rgba(16,48,62,.72);
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0,0,0,.12);
+}
+.scene-top,.scene-bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  padding: 13px 17px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  color: #d3e4e7;
+}
+.scene-top {
+  border-bottom: 1px solid rgba(170,206,215,.17);
+}
+.scene-bottom {
+  border-top: 1px solid rgba(170,206,215,.17);
+  color: #a9c5cb;
+  letter-spacing: .5px;
+}
+.scene-bottom span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.scene-tag {
+  color: #e2c47f;
+}
+.muted {
+  color: #7c9ba5;
+}
+.laundry-diagram {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.legend-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #d6b66f;
+  border-radius: 50%;
+}
+.capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-top: 25px;
+  color: #c3d7dc;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .7px;
+}
+.capabilities span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.capabilities i {
+  color: #d6b66f;
+  font-size: 16px;
+}
+.story-footer {
+  color: #89a5ae;
+}
+.access-panel {
+  background: #fbfcfc;
+  display: flex;
+  flex-direction: column;
+  padding: 38px clamp(35px,5vw,80px) 28px;
+}
+.access-top,.access-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.access-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #637b84;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+}
+.access-signal {
+  height: 7px;
+  width: 7px;
+  border-radius: 50%;
+  background: #d6b66f;
+}
+.access-code {
+  color: #91a2a9;
+}
+.login-box {
+  width: 100%;
+  max-width: 390px;
+  margin: auto;
+  padding: 60px 0;
+}
+.login-symbol {
+  height: 47px;
+  width: 47px;
+  display: grid;
+  place-items: center;
+  background: #eaf2f4;
+  border: 1px solid #d7e6eb;
+  color: #0d6682;
+  border-radius: 12px;
+  font-size: 23px;
+  margin-bottom: 26px;
+}
+.form-eyebrow {
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  font-weight: 800;
+  color: #0d6682;
+}
+.login-heading h2 {
+  font: 800 36px/1.2 "Manrope",sans-serif;
+  letter-spacing: -1.4px;
+  margin: 10px 0;
+}
+.login-heading p {
+  color: #73868d;
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 0 0 36px;
+}
+.form-group {
+  margin-bottom: 20px;
+}
+.form-group label {
+  font-size: 12px;
+  font-weight: 800;
+  display: block;
+  margin-bottom: 9px;
+}
+.input-wrapper {
+  position: relative;
+}
+.input-wrapper input {
+  height: 51px;
+  width: 100%;
+  border: 1px solid #d9e4e7;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0 44px 0 42px;
+  color: #142b37;
+  outline: none;
+  font-size: 13px;
+  transition: border .2s,box-shadow .2s;
+}
+.input-wrapper input::placeholder {
+  color: #a1b0b6;
+}
+.input-wrapper input:focus {
+  border-color: #0d6682;
+  box-shadow: 0 0 0 3px rgba(13,102,130,.09);
+}
+.input-wrapper input.error {
+  border-color: #ce4e4e;
+}
+.input-icon {
+  position: absolute;
+  top: 50%;
+  left: 15px;
+  transform: translateY(-50%);
+  font-size: 17px;
+  color: #90a3aa;
+  pointer-events: none;
+}
+.toggle-pass {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: 0;
+  padding: 7px;
+  color: #81969f;
+  cursor: pointer;
+  font-size: 17px;
+}
+.toggle-pass:hover {
+  color: #0d6682;
+}
+.form-options {
+  margin: 1px 0 26px;
+}
+.remember-me {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  color: #637982;
+  font-size: 12px;
+  cursor: pointer;
+}
+.remember-me input {
+  accent-color: #0d6682;
+  width: 15px;
+  height: 15px;
+}
+.btn-login {
+  width: 100%;
+  height: 52px;
+  background: #0d536d;
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 13px;
+  transition: background .2s,transform .2s;
+}
+.btn-login:hover {
+  background: #0b4055;
+  transform: translateY(-1px);
+}
+.btn-login:disabled {
+  opacity: .65;
+  cursor: not-allowed;
+  transform: none;
+}
+#btnText,#btnLoader {
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+#btnText {
+  display: flex;
+}
+#btnLoader {
+  display: flex;
+}
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin {
+
+}
+.access-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 24px;
+  padding-top: 21px;
+  border-top: 1px solid #e4ebed;
+  color: #82949a;
+}
+.access-note i {
+  font-size: 17px;
+  color: #0d6682;
+}
+.access-note p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.error-msg {
+  background: #fff2f1;
+  border: 1px solid #f0c4c0;
+  border-radius: 7px;
+  color: #b63f39;
+  font-size: 12px;
+  padding: 12px;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 22px;
+}
+.access-footer {
+  font-size: 10px;
+  color: #95a6ac;
+  letter-spacing: .5px;
+}
+.access-footer i {
+  font-size: 14px;
+  color: #0d6682;
+}
+.access-footer span:first-child {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+@media (max-width:1050px) {
+  .shell {
+    grid-template-columns: minmax(0,1fr) minmax(350px,.85fr);
+  }
+  .story-panel {
+    padding: 30px;
+  }
+  .access-panel {
+    padding: 30px;
+  }
+  .story-content h1 {
+    letter-spacing: -2px;
+  }
+  .scene-top,.scene-bottom {
+    font-size: 8px;
+  }
+}
+@media (max-width:780px) {
+  .shell {
+    display: flex;
+    flex-direction: column;
+  }
+  .story-panel {
+    min-height: auto;
+    padding: 25px 24px;
+  }
+  .story-content {
+    padding: 42px 0 28px;
+  }
+  .story-content h1 {
+    font-size: 43px;
+  }
+  .scene {
+    max-width: 600px;
+  }
+  .story-footer {
+    margin-top: 18px;
+  }
+  .access-panel {
+    min-height: 620px;
+    padding: 24px;
+  }
+  .login-box {
+    padding: 55px 0;
+  }
+  .access-footer {
+    margin-top: auto;
+  }
+}
+@media (max-width:480px) {
+  .edition {
+    display: none;
+  }
+  .story-content h1 {
+    font-size: 38px;
+  }
+  .intro {
+    font-size: 13px;
+  }
+  .scene-top,.scene-bottom {
+    flex-wrap: wrap;
+  }
+  .scene-tag {
+    font-size: 8px;
+  }
+  .capabilities {
+    gap: 11px;
+  }
+  .capabilities span {
+    font-size: 9px;
+  }
+  .story-footer {
+    font-size: 8px;
+  }
+  .access-panel {
+    min-height: 600px;
+  }
+  .login-heading h2 {
+    font-size: 32px;
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  *,*:before,*:after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+
+/* ============================================================
+   FULL-SCREEN DESKTOP FIX
+   Actual classes: .shell, .story-panel, .access-panel
+   On desktop: no page scrolling, all important content visible.
+   On mobile/very short windows: allow scrolling for accessibility.
+   ============================================================ */
+@media (min-width: 781px) and (min-height: 601px) {
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  .shell {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .story-panel, .access-panel {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    padding-top: clamp(14px, 2.4vh, 26px);
+    padding-bottom: clamp(14px, 2.4vh, 26px);
+  }
+  .story-panel { padding-left: clamp(25px, 3vw, 56px); padding-right: clamp(25px, 3vw, 56px); }
+  .access-panel { padding-left: clamp(26px, 4vw, 70px); padding-right: clamp(26px, 4vw, 70px); }
+  .masthead, .story-footer, .access-top, .access-footer { flex-shrink: 0; }
+  .story-content {
+    margin: auto 0;
+    padding: clamp(8px, 1.5vh, 16px) 0;
+    min-height: 0;
+  }
+  .story-content h1 {
+    font-size: clamp(32px, min(4.2vw, 6.1vh), 66px);
+    line-height: 1.08;
+    letter-spacing: -2px;
+    margin: clamp(8px, 1.5vh, 15px) 0 clamp(7px, 1.4vh, 14px);
+  }
+  .intro {
+    font-size: clamp(12px, 1.6vh, 15px);
+    line-height: 1.5;
+    margin-bottom: clamp(9px, 1.8vh, 19px);
+  }
+  .laundry-diagram {
+    width: 100%;
+    height: clamp(145px, 30vh, 290px);
+    object-fit: contain;
+  }
+  .scene-top, .scene-bottom { padding: clamp(7px, 1.1vh, 12px) 13px; }
+  .capabilities { margin-top: clamp(8px, 1.5vh, 16px); gap: 9px 18px; }
+  .login-box {
+    margin: auto;
+    padding: 8px 0;
+    min-height: 0;
+  }
+  .login-symbol {
+    height: 42px; width: 42px;
+    margin-bottom: clamp(11px, 2vh, 20px);
+  }
+  .login-heading h2 { font-size: clamp(27px, 3.5vh, 36px); margin: 7px 0; }
+  .login-heading p { margin-bottom: clamp(13px, 2.4vh, 25px); }
+  .form-group { margin-bottom: clamp(11px, 2vh, 17px); }
+  .form-group label { margin-bottom: 6px; }
+  .input-wrapper input { height: clamp(42px, 5.8vh, 51px); }
+  .form-options { margin: 0 0 clamp(12px, 2.2vh, 20px); }
+  .btn-login { height: clamp(44px, 6vh, 52px); }
+  .access-note { margin-top: clamp(13px, 2.4vh, 22px); padding-top: clamp(11px, 2vh, 19px); }
+}
+
+/* Smaller laptop windows: reduce vertical spacing, not visibility. */
+@media (min-width: 781px) and (min-height: 601px) and (max-height: 740px) {
+  .identity { font-size: 22px; }
+  .identity-mark { width: 31px; height: 31px; }
+  .story-content h1 { font-size: clamp(30px, 5.5vh, 42px); }
+  .intro { line-height: 1.4; }
+  .laundry-diagram { height: 25vh; }
+  .capabilities { font-size: 9px; }
+  .login-symbol { height: 36px; width: 36px; margin-bottom: 10px; }
+  .login-heading p { margin-bottom: 12px; }
+  .form-group { margin-bottom: 10px; }
+  .form-options { margin-bottom: 12px; }
+  .access-note { margin-top: 12px; padding-top: 10px; }
+}
+
+/* Mobile and very short browser windows must remain scrollable. */
+@media (max-width: 780px), (max-height: 600px) {
+  html, body { height: auto; overflow-x: hidden; overflow-y: auto; }
+  .shell { height: auto; min-height: 100vh; overflow: visible; }
+  .story-panel, .access-panel { height: auto; overflow: visible; }
+}
+
+
+/* ===== GLiPS post-login transition (only after successful authentication) ===== */
+.glips-transition{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:#eaf4f6;color:#142b37;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .3s ease,visibility .3s ease;padding:24px}
+.glips-transition.is-visible{opacity:1;visibility:visible;pointer-events:all}
+.transition-content{width:min(100%,450px);text-align:left}
+.transition-brand{display:flex;align-items:center;gap:12px;font:800 27px 'Manrope',sans-serif;letter-spacing:-1.3px}
+.transition-mark{width:42px;height:42px;border:1px solid #b8d4db;border-radius:10px;display:grid;place-items:center;background:#fff;color:#0d6682;font-size:22px}
+.transition-period{color:#b68a35}.transition-rule{height:1px;background:#c6dce2;margin:37px 0 30px}.transition-rule span{display:block;width:54px;height:2px;background:#b68a35}
+.transition-eyebrow{font-size:10px;font-weight:800;letter-spacing:2px;color:#0d6682;margin:0 0 13px}
+.transition-content h2{font:800 clamp(32px,5vw,51px)/1.15 'Manrope',sans-serif;letter-spacing:-2px;margin:0 0 16px}
+.transition-content h2 em{font-style:normal;color:#0d6682}.transition-description{font-size:13px;color:#617e88;line-height:1.7;margin:0 0 30px}
+.transition-progress{height:4px;border-radius:20px;background:#cddfe4;overflow:hidden}
+.transition-progress span{display:block;height:100%;width:0;background:#0d6682;animation:glips-load 1.1s ease-in-out forwards}
+.transition-footer{margin:19px 0 0;color:#7c959e;font-size:10px;letter-spacing:1.3px;font-weight:700}.transition-footer span{padding:0 8px;color:#b68a35}
+@keyframes glips-load{0%{width:0}55%{width:68%}100%{width:100%}}
+@media(prefers-reduced-motion:reduce){.glips-transition{transition:none}.transition-progress span{animation:none;width:100%}}
