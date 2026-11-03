@@ -67,6 +67,12 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await text('gasValveStatus'),'UNKNOWN');assert.equal(await text('quickDHT'),'Unknown');
     fail=true;await page.evaluate(()=>manualRefresh());assert.equal(await text('quickSupabase'),'Disconnected');assert.equal(await text('heroStatus'),'DATABASE DISCONNECTED');assert.match(await text('chartEmptyState'),/Database unavailable/);
     fail=false;rows=[];await page.evaluate(()=>manualRefresh());assert.match(await text('chartEmptyState'),/No sensor data/);
+    rows=[{...row(55,0),status:'SENSOR ERROR'}];await page.evaluate(()=>manualRefresh());
+    assert.equal(await text('heroStatus'),'SENSOR ERROR');assert.equal(await text('gasPpm'),'--');
+    assert.match(await text('quickESP32'),/Reporting/);assert.match(await text('chartEmptyState'),/Sensor error/);
+    assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),0);
+    assert.equal(await page.evaluate(()=>getGasStatus(getSensorGas(currentSensor))),'UNKNOWN');
+    console.log('PASS firmware SENSOR ERROR with zero ppm is never SAFE or a plotted measurement');
     rows=[row(6,40)];await page.evaluate(()=>manualRefresh());assert.equal(await text('heroStatus'),'SYSTEM SAFE');
     // Staleness timer must work without waiting for a successful database response.
     await page.clock.install();await page.evaluate(()=>{clearInterval(refreshTimer);clearInterval(countdownTimer);currentSensor.created_at=new Date(Date.now()-19000).toISOString();startRefreshTimers();clearInterval(refreshTimer)});

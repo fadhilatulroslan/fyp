@@ -207,6 +207,17 @@ function formatTime(value) {
    GAS STATUS
    ===================================================== */
 
+function hasSensorFault(record) {
+  return record?.sensor_valid === false ||
+    ["SENSOR ERROR", "SENSOR_ERROR", "ERROR", "INVALID"].includes(
+      String(record?.status ?? "").trim().toUpperCase()
+    );
+}
+
+function getSensorGas(record) {
+  return hasSensorFault(record) ? null : numberOrNull(record?.gas_ppm);
+}
+
 function getGasStatus(ppm) {
   const value = numberOrNull(ppm);
 
@@ -399,7 +410,7 @@ function showOffline(message) {
   const hasRecord = Boolean(currentSensor);
 
   const recordedStatus = hasRecord
-    ? getGasStatus(currentSensor.gas_ppm)
+    ? getGasStatus(getSensorGas(currentSensor))
     : "UNKNOWN";
 
   setText(
@@ -677,9 +688,7 @@ async function loadData() {
     allSensors = data;
     currentSensor = data[0];
 
-    const recordedStatus = getGasStatus(
-      currentSensor.gas_ppm
-    );
+    const recordedStatus = getGasStatus(getSensorGas(currentSensor));
 
     // Check if sensor reading is recent.
     lastReadingFresh =
@@ -705,7 +714,9 @@ async function loadData() {
     // Sensor offline or invalid reading.
     if (!lastReadingFresh) {
       showOffline(
-        "ESP32 has not sent a recent valid reading."
+        hasSensorFault(currentSensor)
+          ? "ESP32 reports a sensor error. Gas concentration is unavailable."
+          : "ESP32 has not sent a recent valid reading."
       );
 
       return;
@@ -774,7 +785,7 @@ async function loadData() {
 function updateHeroValues(record) {
   setText(
     "heroGas",
-    formatNumber(record.gas_ppm)
+    formatNumber(getSensorGas(record))
   );
 
   setText(
@@ -856,7 +867,7 @@ function updateSensorCards(
   status,
   isLive = true
 ) {
-  const ppm = numberOrNull(record.gas_ppm);
+  const ppm = getSensorGas(record);
 
   const temp = numberOrNull(
     getField(record, ["temperature", "temp"])
@@ -1080,7 +1091,8 @@ function toggleHardware(card) {
 
 function updateConnectivity(record) {
   const live = lastReadingFresh && !isReadingStale(record);
-  const reporting = live ? "Reporting" : databaseConnected ? "Not reporting" : "Unknown";
+  const reporting = live ? "Reporting" : databaseConnected && !isReadingStale(record) && hasSensorFault(record)
+    ? "Reporting · sensor error" : databaseConnected ? "Not reporting" : "Unknown";
   setText("quickEsp32", reporting);
   setText("quickESP32", reporting);
   setText("esp32Status", live ? "REPORTING" : "UNKNOWN");
@@ -1217,7 +1229,9 @@ function updateChart(records = allSensors) {
       ? "Database unavailable — retrying connection."
       : !currentSensor
         ? "No sensor data — waiting for the first ESP32 reading."
-        : "ESP32 offline — waiting for a new valid reading.";
+        : hasSensorFault(currentSensor)
+          ? "Sensor error — waiting for a valid LPG reading."
+          : "ESP32 offline — waiting for a new valid reading.";
   }
   if (!sensorChart) return;
 
@@ -1236,7 +1250,7 @@ function updateChart(records = allSensors) {
 
   sensorChart.data.datasets[0].data =
     selected.map(
-      row => getGasStatus(row.gas_ppm) === "UNKNOWN" ? null : numberOrNull(row.gas_ppm)
+      row => getGasStatus(getSensorGas(row)) === "UNKNOWN" ? null : getSensorGas(row)
     );
 
   sensorChart.data.datasets[1].data =
@@ -1289,9 +1303,7 @@ function loadAlertHistoryFromData(records) {
   let previousStatus = null;
 
   ordered.forEach(record => {
-    const status = getGasStatus(
-      record.gas_ppm
-    );
+    const status = getGasStatus(getSensorGas(record));
 
     if (status === "UNKNOWN") return;
 
@@ -1447,7 +1459,7 @@ async function loadCompleteAlertHistory() {
     const rows = [];
     for (let offset = 0; offset < maxRows; offset += pageSize) {
       const { data, error } = await sb.from(CONFIG.sensorTable)
-        .select("id,created_at,gas_ppm")
+        .select("id,created_at,gas_ppm,status")
         .order("created_at", { ascending: false })
         .range(offset, offset + pageSize - 1)
         .abortSignal(AbortSignal.timeout(15000));
@@ -2241,9 +2253,7 @@ async function sendTelegramAlert() {
       {
         status: currentStatus,
 
-        gas_ppm: numberOrNull(
-          currentSensor.gas_ppm
-        ),
+        gas_ppm: getSensorGas(currentSensor),
 
         temperature: numberOrNull(
           currentSensor.temperature
@@ -2724,17 +2734,13 @@ async function callAI(
   try {
     const live = lastReadingFresh && !isReadingStale(currentSensor);
     const recordedStatus = currentSensor
-      ? getGasStatus(
-          currentSensor.gas_ppm
-        )
+      ? getGasStatus(getSensorGas(currentSensor))
       : "UNKNOWN";
 
     // Sensor data sent as context to AI.
     const telemetry = currentSensor
       ? {
-          gas_ppm: numberOrNull(
-            currentSensor.gas_ppm
-          ),
+          gas_ppm: getSensorGas(currentSensor),
 
           temperature: numberOrNull(
             currentSensor.temperature
@@ -3209,7 +3215,7 @@ updateHeroValues = function (record) {
   originalUpdateHeroValues(record);
 
   drawGasGauge(
-    record?.gas_ppm ?? null,
+    getSensorGas(record),
     lastReadingFresh
   );
 };
@@ -3225,7 +3231,7 @@ showOffline = function (message) {
 
   setText(
     "heroStatus",
-    !databaseConnected ? "DATABASE DISCONNECTED" : hasRecord ? "ESP32 NOT REPORTING" : "MONITORING UNAVAILABLE"
+    !databaseConnected ? "DATABASE DISCONNECTED" : hasSensorFault(currentSensor) ? "SENSOR ERROR" : hasRecord ? "ESP32 NOT REPORTING" : "MONITORING UNAVAILABLE"
   );
 
   setText(
@@ -3236,7 +3242,7 @@ showOffline = function (message) {
   );
 
   drawGasGauge(
-    hasRecord ? currentSensor.gas_ppm : null,
+    getSensorGas(currentSensor),
     false // Memaksa gauge tunjuk "LAST RECORDED"
   );
 };
@@ -3246,13 +3252,13 @@ function initializeGLiPSUIFixes() {
   updateSoundButton();
 
   drawGasGauge(
-    currentSensor?.gas_ppm ?? null,
+    getSensorGas(currentSensor),
     lastReadingFresh
   );
 
   window.addEventListener("resize", () => {
     drawGasGauge(
-      currentSensor?.gas_ppm ?? null,
+      getSensorGas(currentSensor),
       lastReadingFresh
     );
   });

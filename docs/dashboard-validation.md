@@ -48,3 +48,22 @@ Historical alert events are derived from changes in sensor gas status, including
 recovery to SAFE; they are not proof a Telegram message was delivered. The full
 history query is capped at 10,000 sensor rows. Frontend session checks do not
 replace Supabase row-level security and authorization in Edge Functions.
+
+## Findings from the supplied ESP firmware
+
+Telegram text and photos are sent directly by `processTelegramAlert()` through
+`sendTelegramText()` and `sendTelegramPhoto()`. The optional dashboard manual-alert
+endpoint is independent. The supplied firmware is not committed because it contains
+credentials.
+
+The firmware currently enables DEMO_MODE, alternating 120/1500 ppm every 15 seconds.
+Its danger entry/recovery thresholds are 1000/800 ppm, different from the frontend's
+100/300 ppm classification; alignment needs an explicit operating-mode decision.
+MQ_R0 is NAN, so real MQ-6 measurements cannot work until calibrated. Invalid
+measurements are currently uploaded as zero with SENSOR ERROR; the frontend now
+honors this status, excludes the reading from the graph/history, and shows unknown
+instead of SAFE. The upload does not include hardware feedback fields, so the
+frontend cannot verify valve/fan/LED/buzzer states. Firmware still captures Telegram
+photos even though dashboard capture controls were removed. The firmware's use of
+setInsecure() and photo-buffer access after esp_camera_fb_return() also require a
+separate firmware correction and device validation before claiming readiness.
