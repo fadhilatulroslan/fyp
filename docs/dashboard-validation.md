@@ -22,6 +22,10 @@ and escaped content, manual Telegram configuration and duplicate-send prevention
 camera start/stop/error/timeout, sound toggle, modal close, mobile overflow,
 login success/failure, remembered username, logout, and navigation without a session.
 
+The user believes automatic Telegram alerts are sent by the ESP firmware. That
+firmware is not in this repository, so delivery is displayed as unverified; it
+is independent of the dashboard's optional Send Manual Alert button.
+
 ## Verify with real devices before the demo
 
 - Sign in using an existing authorized account and verify logout and sign-in again.

@@ -43,6 +43,7 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await text('quickSupabase'),'Connected');
     assert.equal(await text('quickWiFi'),'ON');
     assert.equal(await text('quickDHT'),'Reporting');
+    assert.equal(await text('quickTelegram'),'Delivery not verified');
     assert.match(await text('quickUpdate'),/ago/);
     assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),1);
     assert.equal(await page.evaluate(()=>currentChartPeriod),10);

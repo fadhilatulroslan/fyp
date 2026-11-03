@@ -1094,7 +1094,7 @@ function updateConnectivity(record) {
   const humid = numberOrNull(getField(record, ["humidity", "humid"]));
   setText("quickDHT", !live ? "Unknown" : temp !== null && humid !== null ? "Reporting" : "Incomplete reading");
   if (!CONFIG.telegramAlertEndpoint || !$("quickTelegram")?.dataset.checked) {
-    setText("quickTelegram", CONFIG.telegramAlertEndpoint ? "Not verified" : "Not configured");
+    setText("quickTelegram", CONFIG.telegramAlertEndpoint ? "Not verified" : "Delivery not verified");
   }
   updateLastSeen();
 }
