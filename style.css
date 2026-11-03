@@ -2514,3 +2514,8 @@ canvas {
   z-index: 2;
   background: #f8fafc;
 }
+
+/* Explain empty live graphs without displaying historical data as live. */
+.chart-container-full { position: relative; }
+.chart-empty-state { position: absolute; inset: 35% 12% auto; margin: 0; padding: 16px; text-align: center; color: #475569; background: rgba(255,255,255,.95); border: 1px solid #e2e8f0; border-radius: 10px; font-size: 13px; }
+.chart-empty-state[hidden] { display: none; }

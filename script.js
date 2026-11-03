@@ -76,10 +76,13 @@ let alertHistory = [];
 let historyLastLoadedAt = 0;
 let historyLoading = false;
 let historyLoadedFromServer = false;
+let historySensorRows = [];
 let systemEvents = [];
 let aiConversation = [];
 
-let currentChartPeriod = 20;
+let currentChartPeriod = 10;
+let cameraConnectTimer = null;
+let telegramSending = false;
 
 let lastRecordKey = null;
 let lastAlertStatus = null;
@@ -136,7 +139,8 @@ function numberOrNull(value) {
   if (
     value === null ||
     value === undefined ||
-    value === ""
+    (typeof value === "string" && value.trim() === "") ||
+    !["string", "number"].includes(typeof value)
   ) {
     return null;
   }
@@ -170,6 +174,7 @@ function formatDate(value) {
   }
 
   return date.toLocaleDateString("en-MY", {
+    timeZone: "Asia/Kuala_Lumpur",
     year: "numeric",
     month: "short",
     day: "2-digit"
@@ -186,6 +191,7 @@ function formatTimeOnly(value) {
   }
 
   return date.toLocaleTimeString("en-MY", {
+    timeZone: "Asia/Kuala_Lumpur",
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -438,6 +444,7 @@ function showOffline(message) {
     );
 
   } else {
+    updateSensorCards({}, "UNKNOWN", false);
     setText("heroGas", "--");
     setText("heroTemp", "--");
     setText("heroHumid", "--");
@@ -491,6 +498,8 @@ function showOffline(message) {
   }
 
   updateHardware(null);
+  updateConnectivity(currentSensor);
+  setHTML("heroIcon", '<i class="ti ti-wifi-off"></i>');
 
   console.warn("[GLiPS]", message);
 }
@@ -501,8 +510,6 @@ function showOffline(message) {
 
 async function initializeGLiPS() {
   console.log("[GLiPS] Initializing...");
-
-  hideLoading();
 
   try {
     // Initialize dashboard components.
@@ -525,6 +532,14 @@ async function initializeGLiPS() {
       CONFIG.supabaseUrl,
       CONFIG.supabaseAnonKey
     );
+
+    // Authenticate navigation before requesting dashboard data.
+    const { data: authData, error: authError } = await sb.auth.getSession();
+    if (authError) throw authError;
+    if (!authData?.session) {
+      window.location.replace("index.html");
+      return;
+    }
 
     // Load first sensor readings.
     await loadData();
@@ -587,6 +602,7 @@ function startRefreshTimers() {
       showOffline("ESP32 has not sent a recent valid reading.");
     }
 
+    updateLastSeen();
     countdown = Math.max(
       0,
       countdown - 1
@@ -630,7 +646,8 @@ async function loadData() {
       .order("created_at", {
         ascending: false
       })
-      .limit(500);
+      .limit(500)
+      .abortSignal(AbortSignal.timeout(15000));
 
     if (error) {
       throw error;
@@ -671,7 +688,11 @@ async function loadData() {
 
     // Update charts and alert history.
     updateChart(data);
-    if (!historyLoadedFromServer) loadAlertHistoryFromData(data);
+    if (historyLoadedFromServer) {
+      mergeHistoryRows(data);
+    } else {
+      loadAlertHistoryFromData(data);
+    }
     if (Date.now() - historyLastLoadedAt > 300000) {
       void loadCompleteAlertHistory();
     }
@@ -1058,33 +1079,35 @@ function toggleHardware(card) {
    ===================================================== */
 
 function updateConnectivity(record) {
-  setText("quickEsp32", "Reporting");
-  setText("quickESP32", "Reporting");
+  const live = lastReadingFresh && !isReadingStale(record);
+  const reporting = live ? "Reporting" : databaseConnected ? "Not reporting" : "Unknown";
+  setText("quickEsp32", reporting);
+  setText("quickESP32", reporting);
+  setText("esp32Status", live ? "REPORTING" : "UNKNOWN");
+  setText("esp32StatusBadge", live ? "ONLINE" : "OFFLINE");
+  setText("quickSupabase", databaseConnected ? "Connected" : "Disconnected");
+  const wifi = live ? getField(record, ["wifi_status", "wifi_connected"]) : null;
+  const wifiLabel = wifi === null ? (live ? "Not reported" : "Unknown") : normalizeState(wifi);
+  setText("wifiStatus", wifiLabel);
+  setText("quickWiFi", wifiLabel);
+  const temp = numberOrNull(getField(record, ["temperature", "temp"]));
+  const humid = numberOrNull(getField(record, ["humidity", "humid"]));
+  setText("quickDHT", !live ? "Unknown" : temp !== null && humid !== null ? "Reporting" : "Incomplete reading");
+  if (!CONFIG.telegramAlertEndpoint || !$("quickTelegram")?.dataset.checked) {
+    setText("quickTelegram", CONFIG.telegramAlertEndpoint ? "Not verified" : "Not configured");
+  }
+  updateLastSeen();
+}
 
-  setText("esp32Status", "REPORTING");
-  setText("esp32StatusBadge", "ONLINE");
-
-  const wifi = getField(record, [
-    "wifi_status",
-    "wifi_connected"
-  ]);
-
-  setText(
-    "wifiStatus",
-    wifi === null
-      ? "NOT REPORTED"
-      : normalizeState(wifi)
-  );
-
-  setText(
-    "quickTelegram",
-    "Not verified"
-  );
-
-  setText(
-    "quickUpdate",
-    formatTime(record.created_at)
-  );
+function updateLastSeen() {
+  if (!currentSensor?.created_at || !Number.isFinite(new Date(currentSensor.created_at).getTime())) {
+    setText("quickUpdate", "No readings received");
+    return;
+  }
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(currentSensor.created_at).getTime()) / 1000));
+  const age = seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${Math.floor(seconds / 60)}m` : `${Math.floor(seconds / 3600)}h`;
+  setText("quickUpdate", `${age} ago${lastReadingFresh ? "" : " · last recorded"}`);
+  if ($("quickUpdate")) $("quickUpdate").title = formatTime(currentSensor.created_at);
 }
 
 /* =====================================================
@@ -1095,6 +1118,7 @@ function initializeChart() {
   const canvas = $("sensorChart");
 
   if (!canvas || !window.Chart) {
+    setText("chartEmptyState", "Graph unavailable — refresh to reload Chart.js.");
     console.warn(
       "[GLiPS] Chart.js unavailable."
     );
@@ -1185,6 +1209,16 @@ function initializeChart() {
    ===================================================== */
 
 function updateChart(records = allSensors) {
+  const live = lastReadingFresh && !isReadingStale(currentSensor);
+  const empty = $("chartEmptyState");
+  if (empty) {
+    empty.hidden = live && Boolean(sensorChart);
+    empty.textContent = !sensorChart ? "Graph unavailable — refresh to reload Chart.js." : !databaseConnected
+      ? "Database unavailable — retrying connection."
+      : !currentSensor
+        ? "No sensor data — waiting for the first ESP32 reading."
+        : "ESP32 offline — waiting for a new valid reading.";
+  }
   if (!sensorChart) return;
 
   // Never show saved readings as a live graph while monitoring is offline.
@@ -1202,7 +1236,7 @@ function updateChart(records = allSensors) {
 
   sensorChart.data.datasets[0].data =
     selected.map(
-      row => numberOrNull(row.gas_ppm)
+      row => getGasStatus(row.gas_ppm) === "UNKNOWN" ? null : numberOrNull(row.gas_ppm)
     );
 
   sensorChart.data.datasets[1].data =
@@ -1285,6 +1319,22 @@ function loadAlertHistoryFromData(records) {
    MONTH FILTER
    ===================================================== */
 
+function mergeHistoryRows(records) {
+  const byId = new Map(historySensorRows.map(row => [String(row.id ?? row.created_at), row]));
+  records.forEach(row => byId.set(String(row.id ?? row.created_at), row));
+  historySensorRows = [...byId.values()]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 10000);
+  loadAlertHistoryFromData(historySensorRows);
+}
+
+function getMonthKey(date) {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Kuala_Lumpur", year: "numeric", month: "2-digit"
+  }).formatToParts(date);
+  return `${parts.find(part => part.type === "year").value}-${parts.find(part => part.type === "month").value}`;
+}
+
 function updateMonthFilter() {
   const select = $("monthFilter");
 
@@ -1300,9 +1350,7 @@ function updateMonthFilter() {
 
     if (!Number.isNaN(date.getTime())) {
       months.add(
-        `${date.getFullYear()}-${String(
-          date.getMonth() + 1
-        ).padStart(2, "0")}`
+        getMonthKey(date)
       );
     }
   });
@@ -1348,9 +1396,7 @@ function getFilteredAlerts() {
     );
 
     const month =
-      `${date.getFullYear()}-${String(
-        date.getMonth() + 1
-      ).padStart(2, "0")}`;
+      getMonthKey(date);
 
     return month === selected;
   });
@@ -1403,13 +1449,15 @@ async function loadCompleteAlertHistory() {
       const { data, error } = await sb.from(CONFIG.sensorTable)
         .select("id,created_at,gas_ppm")
         .order("created_at", { ascending: false })
-        .range(offset, offset + pageSize - 1);
+        .range(offset, offset + pageSize - 1)
+        .abortSignal(AbortSignal.timeout(15000));
       if (error) throw error;
       if (!Array.isArray(data) || !data.length) break;
       rows.push(...data);
       if (data.length < pageSize) break;
     }
-    loadAlertHistoryFromData(rows);
+    historySensorRows = rows;
+    mergeHistoryRows(allSensors);
     historyLoadedFromServer = true;
     historyLastLoadedAt = Date.now();
     console.info(`[GLiPS] Historical rows loaded: ${rows.length}`);
@@ -1996,6 +2044,7 @@ async function toggleCamera() {
   );
 
   image.onload = () => {
+    clearTimeout(cameraConnectTimer);
     cameraStatus(
       true,
       "Streaming"
@@ -2003,18 +2052,18 @@ async function toggleCamera() {
   };
 
   image.onerror = () => {
-    cameraStatus(
-      false,
-      "Connection failed"
-    );
+    stopCamera("Connection failed");
 
     showToast(
       "Camera stream unavailable. Check camera IP and network.",
       "warning"
     );
-
-    stopCamera();
   };
+
+  cameraConnectTimer = setTimeout(() => {
+    stopCamera("Connection timed out");
+    showToast("Camera did not respond. Check its address and network.", "warning");
+  }, 15000);
 
   try {
     image.src =
@@ -2061,13 +2110,14 @@ async function toggleCamera() {
    STOP CAMERA STREAM
    ===================================================== */
 
-function stopCamera() {
+function stopCamera(label = "Offline") {
+  clearTimeout(cameraConnectTimer);
   isCameraOn = false;
 
   if (cameraImageElement) {
     cameraImageElement.onload = null;
     cameraImageElement.onerror = null;
-    cameraImageElement.src = "";
+    cameraImageElement.removeAttribute("src");
 
     cameraImageElement.style.display =
       "none";
@@ -2086,7 +2136,7 @@ function stopCamera() {
 
   cameraStatus(
     false,
-    "Offline"
+    label
   );
 }
 
@@ -2139,6 +2189,7 @@ async function callBackend(endpoint, payload) {
       "apikey": CONFIG.supabaseAnonKey
     },
 
+    signal: AbortSignal.timeout(30000),
     body: JSON.stringify(payload)
   });
 
@@ -2166,9 +2217,14 @@ async function callBackend(endpoint, payload) {
    ===================================================== */
 
 async function sendTelegramAlert() {
+  if (telegramSending) return;
+  if (!CONFIG.telegramAlertEndpoint) {
+    showToast("Manual Telegram alerts are not configured. Device alerts are separate.", "warning");
+    return;
+  }
   if (
     !currentSensor ||
-    !lastReadingFresh
+    !lastReadingFresh || isReadingStale(currentSensor)
   ) {
     showToast(
       "No live sensor reading available.",
@@ -2178,6 +2234,7 @@ async function sendTelegramAlert() {
     return;
   }
 
+  telegramSending = true;
   try {
     await callBackend(
       CONFIG.telegramAlertEndpoint,
@@ -2201,6 +2258,8 @@ async function sendTelegramAlert() {
       }
     );
 
+    if ($("quickTelegram")) $("quickTelegram").dataset.checked = "true";
+    setText("quickTelegram", "Last send succeeded");
     showToast(
       "Telegram alert sent.",
       "success"
@@ -2212,11 +2271,15 @@ async function sendTelegramAlert() {
     );
 
   } catch (error) {
+    if ($("quickTelegram")) $("quickTelegram").dataset.checked = "true";
+    setText("quickTelegram", "Last send failed");
     showToast(
       `Telegram: ${error.message}`,
       "warning",
       6000
     );
+  } finally {
+    telegramSending = false;
   }
 }
 
@@ -2659,6 +2722,7 @@ async function callAI(
   setAllButtons(true);
 
   try {
+    const live = lastReadingFresh && !isReadingStale(currentSensor);
     const recordedStatus = currentSensor
       ? getGasStatus(
           currentSensor.gas_ppm
@@ -2680,14 +2744,14 @@ async function callAI(
             currentSensor.humidity
           ),
 
-          status: lastReadingFresh
+          status: live
             ? recordedStatus
             : "MONITORING OFFLINE",
 
           last_recorded_status:
             recordedStatus,
 
-          is_live: lastReadingFresh,
+          is_live: live,
 
           timestamp:
             currentSensor.created_at
@@ -2948,6 +3012,8 @@ async function logout() {
       if (error) throw error;
     }
 
+    sessionStorage.removeItem("lpg_logged_in");
+    sessionStorage.removeItem("lpg_user");
     clearInterval(refreshTimer);
     clearInterval(countdownTimer);
 
@@ -3159,14 +3225,14 @@ showOffline = function (message) {
 
   setText(
     "heroStatus",
-    hasRecord ? "ESP32 DISCONNECTED" : "MONITORING UNAVAILABLE"
+    !databaseConnected ? "DATABASE DISCONNECTED" : hasRecord ? "ESP32 NOT REPORTING" : "MONITORING UNAVAILABLE"
   );
 
   setText(
     "heroMessage",
     hasRecord
-      ? `⚠️ SENSOR OFFLINE. Showing last saved reading from ${formatTime(currentSensor.created_at)}.`
-      : "No sensor data found in database."
+      ? `${message} Showing last saved reading from ${formatTime(currentSensor.created_at)}. Current safety status is unknown.`
+      : message
   );
 
   drawGasGauge(
