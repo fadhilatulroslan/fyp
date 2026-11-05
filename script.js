@@ -24,7 +24,7 @@ const CONFIG = {
 
   staleAfterMs: 20000,
 
-  cameraIP: "10.75.100.114",
+  cameraIP: "10.178.40.114",
 
   aiEndpoint:
     "https://fkfgimyelgvlsbtxhvih.supabase.co/functions/v1/glips-ai",
