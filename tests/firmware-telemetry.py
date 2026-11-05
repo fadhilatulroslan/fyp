@@ -2,6 +2,7 @@
 This does not compile the full sketch or establish ESP board compatibility.
 """
 import json
+import sys
 from pathlib import Path
 import subprocess
 import tempfile
@@ -30,7 +31,13 @@ struct Wifi{int status(){return WL_CONNECTED;}} WiFi;
 bool sensorValid=true,danger=false;
 float gasPPM=120,temperature=28.5,humidity=65;
 '''
-source += (repo / 'firmware/buildSupabaseJson-replacement.txt').read_text()
+if '--complete' in sys.argv:
+    sketch = (repo / 'firmware/GLiPS/GLiPS.ino').read_text()
+    start = sketch.index('String buildSupabaseJson() {')
+    end = sketch.index('\nbool sendToSupabase()', start)
+    source += sketch[start:end]
+else:
+    source += (repo / 'firmware/buildSupabaseJson-replacement.txt').read_text()
 source += r'''
 int main(){
 std::cout<<buildSupabaseJson()<<"\n";

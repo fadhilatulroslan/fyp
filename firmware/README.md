@@ -70,3 +70,19 @@ or that table insert permissions are configured. If the response remains
 RLS/permission error is a separate issue and does not mean the API key is invalid.
 Do not disable RLS to resolve an unexplained error. Full-device compilation and
 live Supabase insertion still need verification on the user's laptop/ESP.
+
+## Firmware build v2: camera buffer ownership and upload evidence
+
+The complete sketch prints `GLiPS firmware: output-telemetry + camera-buffer-fix v2`
+on startup and `SUPABASE payload includes hardware_outputs` before each upload.
+Use these messages and the HTTP result to verify that the new sketch, rather than
+an older flashed version, is running. Success still requires non-NULL JSON in a
+new database row; creating the column does not backfill old rows.
+
+Telegram photo upload now copies the JPEG into a temporary buffer and returns the
+camera driver's frame before opening the TLS connection. It frees the copy after
+sending and never reads a returned frame. Allocation failure skips that photo
+attempt. This reduces contention with the one-buffer stream; it does not prove
+that the user's Wi-Fi, tunnel, camera power or full ESP firmware is stable.
+Host checks: `python3 tests/firmware-photo.py` and
+`python3 tests/firmware-telemetry.py`. Full-board compile/upload remains unverified.

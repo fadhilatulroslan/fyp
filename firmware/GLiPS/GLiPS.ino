@@ -416,6 +416,7 @@ bool sendToSupabase() {
   http.addHeader("Prefer", "return=minimal");
 
   String body = buildSupabaseJson();
+  Serial.println("SUPABASE payload includes hardware_outputs");
 
   int code = http.POST(body);
 
@@ -594,12 +595,23 @@ bool sendTelegramPhoto(const String& caption) {
   if (!fb)
     return false;
 
+  // Release the driver's frame before network I/O so live streaming can continue.
+  const size_t frameLength = fb->len;
+  uint8_t* photoData = static_cast<uint8_t*>(malloc(frameLength));
+  if (!photoData) {
+    esp_camera_fb_return(fb);
+    return false;
+  }
+  memcpy(photoData, fb->buf, frameLength);
+  esp_camera_fb_return(fb);
+  fb = nullptr;
+
   WiFiClientSecure client;
   client.setInsecure();
   client.setTimeout(15000);
 
   if (!client.connect("api.telegram.org", 443)) {
-    esp_camera_fb_return(fb);
+    free(photoData);
     return false;
   }
 
@@ -623,7 +635,7 @@ bool sendTelegramPhoto(const String& caption) {
   String tail = "\r\n--" + boundary + "--\r\n";
 
   size_t totalLength =
-      head.length() + fb->len + tail.length();
+      head.length() + frameLength + tail.length();
 
   client.print(
       "POST /bot" + String(BOT_TOKEN) +
@@ -646,12 +658,12 @@ bool sendTelegramPhoto(const String& caption) {
 
   size_t sent = 0;
 
-  while (sent < fb->len) {
+  while (sent < frameLength) {
     size_t chunk =
-        min((size_t)1024, fb->len - sent);
+        min((size_t)1024, frameLength - sent);
 
     size_t written =
-        client.write(fb->buf + sent, chunk);
+        client.write(photoData + sent, chunk);
 
     if (written == 0)
       break;
@@ -659,15 +671,15 @@ bool sendTelegramPhoto(const String& caption) {
     sent += written;
   }
 
-  if (sent == fb->len)
+  if (sent == frameLength)
     client.print(tail);
 
-  esp_camera_fb_return(fb);
+  free(photoData);
 
   String response = client.readStringUntil('\n');
   client.stop();
 
-  return sent == fb->len &&
+  return sent == frameLength &&
          response.indexOf(" 200 ") >= 0;
 }
 
@@ -722,6 +734,7 @@ void processTelegramAlert() {
 
 void setup() {
   Serial.begin(115200);
+  Serial.println("GLiPS firmware: output-telemetry + camera-buffer-fix v2");
   delay(500);
 
   // Initialize safe outputs first
