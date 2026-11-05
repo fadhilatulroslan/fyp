@@ -1,5 +1,6 @@
 // Public full-system sketch: fill the five blank credential fields locally.
 #include <Arduino.h>
+#include <Preferences.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
@@ -40,8 +41,9 @@ const unsigned long DEMO_INTERVAL = 15000;
 const unsigned long ALERT_RETRY = 15000;
 const unsigned long DB_INTERVAL = 5000;
 
-const float GAS_DANGER_PPM = 1000.0;
-const float GAS_SAFE_PPM = 800.0;
+const float GAS_DANGER_PPM = 300.0;
+const float GAS_DANGER_CLEAR_PPM = 250.0;
+const float GAS_SAFE_PPM = 100.0;
 
 // MQ6 calibration (not yet available)
 const float MQ_R0 = NAN;
@@ -114,12 +116,17 @@ WebServer server(80);
 httpd_handle_t streamServer = NULL;
 
 // ===== VARIABLES =====
+Preferences safetyPreferences;
+bool valveLatched = false;
+bool valveStorageReady = false;
+
 bool danger = false;
 bool sensorValid = false;
 bool demoDanger = false;
 
 bool cameraReady = false;
 bool dfReady = false;
+bool voicePlaybackRequested = false;
 
 bool alertSent = false;
 bool photoSent = false;
@@ -137,6 +144,33 @@ unsigned long lastDbPush = 0;
 // ==========================================
 // BUZZER & RELAY
 // ==========================================
+bool nextDangerState(bool previous, bool valid, float ppm) {
+  if (!valid || !isfinite(ppm) || ppm < 0) return previous;
+  return previous ? ppm > GAS_DANGER_CLEAR_PPM : ppm >= GAS_DANGER_PPM;
+}
+
+const char* currentGasStatus() {
+  if (!sensorValid || !isfinite(gasPPM) || gasPPM < 0) return "SENSOR ERROR";
+  if (danger) return "DANGER";
+  return gasPPM > GAS_SAFE_PPM ? "WARNING" : "SAFE";
+}
+
+void restoreValveLatch() {
+  valveStorageReady = safetyPreferences.begin("glips-safety", false);
+  // If stored state cannot be read, keep the configured shut-off relay command.
+  valveLatched = !valveStorageReady || safetyPreferences.getBool("valve-latched", false);
+  if (!valveStorageReady) Serial.println("VALVE: latch storage unavailable; reset disabled");
+}
+
+void latchValve() {
+  if (valveLatched) return;
+  valveLatched = true;
+  if (!valveStorageReady || safetyPreferences.putBool("valve-latched", true) != 1) {
+    valveStorageReady = false;
+    Serial.println("VALVE: latch persistence failed; relay stays latched, reset disabled");
+  }
+}
+
 void buzzerONFunction() {
   digitalWrite(BUZZER_PIN, BUZZER_ON);
 }
@@ -147,7 +181,7 @@ void buzzerOFFFunction() {
 
 void updateValveRelay() {
 #if VALVE_RELAY_TEST
-  if (sensorValid && danger)
+  if (valveLatched)
     digitalWrite(RELAY_VALVE, VALVE_RELAY_DANGER);
   else
     digitalWrite(RELAY_VALVE, VALVE_RELAY_SAFE);
@@ -165,8 +199,8 @@ void updateOutputs() {
     buzzerONFunction();
     digitalWrite(RELAY_FAN, FAN_ON);
   } else {
-    digitalWrite(LED_GREEN, sensorValid ? HIGH : LOW);
-    digitalWrite(LED_RED, sensorValid ? LOW : HIGH);
+    digitalWrite(LED_GREEN, sensorValid && gasPPM <= GAS_SAFE_PPM ? HIGH : LOW);
+    digitalWrite(LED_RED, !sensorValid || gasPPM > GAS_SAFE_PPM ? HIGH : LOW);
     buzzerOFFFunction();
     digitalWrite(RELAY_FAN, FAN_OFF);
   }
@@ -181,9 +215,7 @@ void updateLCD() {
   static String lastLine1 = "";
   static String lastLine2 = "";
 
-  String statusText =
-    !sensorValid ? "SENSOR ERROR" :
-    (danger ? "DANGER" : "SAFE");
+  String statusText = currentGasStatus();
 
   String line1 = "";
   int start = (16 - statusText.length()) / 2;
@@ -278,17 +310,23 @@ void playAlarm() {
   dfPlayer.volume(30);
   delay(200);
   dfPlayer.play(1);
+  voicePlaybackRequested = true;
 }
 
 void stopAlarm() {
+  voicePlaybackRequested = false;
   if (!dfReady) return;
   dfPlayer.stop();
 }
 
 void changeStatus(bool newDanger) {
-  if (danger == newDanger) return;
+  if (danger == newDanger) {
+    if (danger && sensorValid && !voicePlaybackRequested) playAlarm();
+    return;
+  }
 
   danger = newDanger;
+  if (danger) latchValve();
   alertSent = false;
   photoSent = false;
   lastAlert = 0;
@@ -298,6 +336,43 @@ void changeStatus(bool newDanger) {
 
   if (danger) playAlarm();
   else stopAlarm();
+}
+
+bool resetValveLatch() {
+  if (!sensorValid || !isfinite(gasPPM) || gasPPM < 0 || gasPPM > GAS_SAFE_PPM || danger || millis() - lastSensor > SENSOR_INTERVAL * 2) {
+    Serial.println("VALVE RESET REJECTED: fresh valid SAFE reading at or below 100 ppm required");
+    return false;
+  }
+  if (!valveStorageReady || safetyPreferences.putBool("valve-latched", false) != 1) {
+    valveStorageReady = false;
+    Serial.println("VALVE RESET REJECTED: latch storage unavailable");
+    return false;
+  }
+  valveLatched = false;
+  updateValveRelay();
+  Serial.println("VALVE: manual reset accepted; normal relay command restored");
+  return true;
+}
+
+void processSerialCommands() {
+  static char command[32];
+  static size_t length = 0;
+  static bool overflow = false;
+  while (Serial.available() > 0) {
+    const char c = static_cast<char>(Serial.read());
+    if (c == '\r' || c == '\n') {
+      if (!overflow && length > 0) {
+        command[length] = '\0';
+        if (strcmp(command, "RESET_VALVE") == 0) resetValveLatch();
+        else Serial.println("Unknown command. Use RESET_VALVE only after checking the area.");
+      }
+      length = 0;
+      overflow = false;
+    } else if (!overflow) {
+      if (length + 1 < sizeof(command)) command[length++] = c;
+      else overflow = true;
+    }
+  }
 }
 
 // ==========================================
@@ -356,9 +431,7 @@ String getTimeText() {
 // SUPABASE CONNECTION
 // ==========================================
 String buildSupabaseJson() {
-  String statusText =
-    !sensorValid ? "SENSOR ERROR" :
-    (danger ? "DANGER" : "SAFE");
+  String statusText = currentGasStatus();
 
   String json = "{";
 
@@ -378,12 +451,13 @@ String buildSupabaseJson() {
   // GPIO commands reported by this firmware; not physical feedback.
   json += "\"hardware_outputs\":{";
   json += "\"kind\":\"output_commands\",";
+  json += "\"valve_latched\":" + String(valveLatched ? "true" : "false") + ",";
   json += "\"gas_valve\":\"" + String(digitalRead(RELAY_VALVE) == HIGH ? "RELAY HIGH" : "RELAY LOW") + "\",";
   json += "\"exhaust_fan\":\"" + String(digitalRead(RELAY_FAN) == FAN_ON ? "ON" : "OFF") + "\",";
   json += "\"buzzer\":\"" + String(digitalRead(BUZZER_PIN) == BUZZER_ON ? "ON" : "OFF") + "\",";
   json += "\"red_led\":\"" + String(digitalRead(LED_RED) == HIGH ? "ON" : "OFF") + "\",";
   json += "\"green_led\":\"" + String(digitalRead(LED_GREEN) == HIGH ? "ON" : "OFF") + "\",";
-  json += "\"voice_alert\":\"" + String(!dfReady ? "UNAVAILABLE" : sensorValid && danger ? "PLAY REQUESTED" : "STOP REQUESTED") + "\",";
+  json += "\"voice_alert\":\"" + String(!dfReady ? "UNAVAILABLE" : voicePlaybackRequested ? "PLAY REQUESTED" : "STOP REQUESTED") + "\",";
   json += "\"wifi_connected\":" + String(WiFi.status() == WL_CONNECTED ? "true" : "false");
   json += "},";
 
@@ -787,14 +861,15 @@ void setup() {
   buzzerOFFFunction();
 
   Serial.begin(115200);
-  Serial.println("GLiPS firmware: full-system + output-telemetry v3");
+  Serial.println("GLiPS firmware: 300/250 hysteresis + manual valve reset v4");
   delay(500);
   Serial.println("WELCOME GLiPS - SUPABASE VERSION");
 
   digitalWrite(RELAY_FAN, FAN_OFF);
   pinMode(RELAY_FAN, OUTPUT);
 
-  digitalWrite(RELAY_VALVE, VALVE_RELAY_SAFE);
+  restoreValveLatch();
+  digitalWrite(RELAY_VALVE, valveLatched ? VALVE_RELAY_DANGER : VALVE_RELAY_SAFE);
   pinMode(RELAY_VALVE, OUTPUT);
 
   pinMode(LED_GREEN, OUTPUT);
@@ -830,7 +905,7 @@ void setup() {
 
   if (DEMO_MODE) {
     sensorValid = true;
-    gasPPM = 120.0;
+    gasPPM = 80.0;
     temperature = 28.5;
     humidity = 65.0;
   } else {
@@ -913,6 +988,7 @@ void setup() {
 // MAIN LOOP
 // ==========================================
 void loop() {
+  processSerialCommands();
   server.handleClient();
 
   unsigned long now = millis();
@@ -932,7 +1008,7 @@ void loop() {
     lastSensor = now;
 
     if (DEMO_MODE) {
-      gasPPM = demoDanger ? 1500.0 : 120.0;
+      gasPPM = demoDanger ? 350.0 : 80.0;
       temperature = 28.5;
       humidity = 65.0;
       sensorValid = true;
@@ -951,15 +1027,9 @@ void loop() {
     }
 
     if (sensorValid) {
-      if (!danger && gasPPM >= GAS_DANGER_PPM)
-        changeStatus(true);
-      else if (danger && gasPPM <= GAS_SAFE_PPM)
-        changeStatus(false);
+      changeStatus(nextDangerState(danger, sensorValid, gasPPM));
     } else {
-      if (danger) {
-        danger = false;
-        stopAlarm();
-      }
+      if (danger) stopAlarm();
       alertSent = false;
       photoSent = false;
     }

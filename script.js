@@ -39,8 +39,9 @@ const CONFIG = {
    ===================================================== */
 
 const THRESHOLD = {
-  SAFE_MAX: 800,
-  DANGER_MIN: 1000
+  SAFE_MAX: 100,
+  DANGER_CLEAR: 250,
+  DANGER_MIN: 300
 };
 
 /* =====================================================
@@ -238,10 +239,11 @@ function getGasStatus(ppm) {
 
 function getReadingStatus(record) {
   const fallback = getGasStatus(getSensorGas(record));
-  if (fallback === "UNKNOWN") return fallback;
+  if (fallback === "UNKNOWN" || fallback === "DANGER") return fallback;
   const reported = String(record?.status ?? "").trim().toUpperCase();
-  // ESP retains its previous state between the 800/1000 ppm thresholds.
-  return ["SAFE", "WARNING", "DANGER"].includes(reported) ? reported : fallback;
+  // Hold an ESP-reported DANGER only above the 250 ppm clear threshold.
+  return reported === "DANGER" && getSensorGas(record) > THRESHOLD.DANGER_CLEAR
+    ? "DANGER" : fallback;
 }
 
 function getStatusColor(status) {
@@ -1053,9 +1055,13 @@ function updateHardware(record) {
       const element = $(id);
       if (!element) return;
       const reported = value !== "UNKNOWN";
-      element.textContent = reported ? value : unavailable;
+      const valveLatch = fresh && id === "gasValveStatus" ? getField(record, ["valve_latched"]) : null;
+      element.textContent = valveLatch === true ? "Latched" : reported ? value : unavailable;
       const detail = $(id.replace(/Status$/, "Detail"));
-      if (detail) detail.textContent = element.textContent;
+      if (detail) detail.textContent = valveLatch === true
+        ? `${reported ? value : "Relay state not reported"} · manual reset required` : element.textContent;
+      if (id === "gasValveStatus") setText("valveResetStatus", valveLatch === true
+        ? "Manual reset on ESP32 required" : valveLatch === false ? "No reset required" : unavailable);
       const dot = $("dot" + id.replace(/Status$/, "").replace(/^./, letter => letter.toUpperCase()));
       if (dot) {
         dot.classList.toggle("active", reported);
@@ -1063,7 +1069,7 @@ function updateHardware(record) {
       }
       element.title = reported ? "Reported output command; physical operation is not verified" : unavailable;
       element.classList.remove("on", "off", "active", "offline", "closed");
-      element.classList.add(!reported ? "offline" : value === "CLOSED" ? "closed" : active(value) ? "on" : "off");
+      element.classList.add(valveLatch === true ? "closed" : !reported ? "offline" : value === "CLOSED" ? "closed" : active(value) ? "on" : "off");
     });
   });
   const alarmStates = [states.buzzerStatus, states.redLEDStatus, states.greenLEDStatus];
@@ -1157,7 +1163,7 @@ function initializeChart() {
           },
 
           {
-            label: "Danger reset (800 ppm)",
+            label: "Safe range limit (100 ppm)",
             data: [],
             borderColor: "#d97706",
             borderDash: [5, 5],
@@ -1166,7 +1172,16 @@ function initializeChart() {
           },
 
           {
-            label: "Danger trigger (1000 ppm)",
+            label: "Danger reset (250 ppm)",
+            data: [],
+            borderColor: "#7c3aed",
+            borderDash: [3, 5],
+            borderWidth: 1.5,
+            pointRadius: 0
+          },
+
+          {
+            label: "Danger trigger (300 ppm)",
             data: [],
             borderColor: "#dc2626",
             borderDash: [5, 5],
@@ -1200,7 +1215,7 @@ function initializeChart() {
 
           y: {
             beginAtZero: true,
-            suggestedMax: 1200,
+            suggestedMax: 400,
 
             title: {
               display: true,
@@ -1255,10 +1270,8 @@ function updateChart(records = allSensors) {
       () => THRESHOLD.SAFE_MAX
     );
 
-  sensorChart.data.datasets[2].data =
-    selected.map(
-      () => THRESHOLD.DANGER_MIN
-    );
+  sensorChart.data.datasets[2].data = selected.map(() => THRESHOLD.DANGER_CLEAR);
+  sensorChart.data.datasets[3].data = selected.map(() => THRESHOLD.DANGER_MIN);
 
   sensorChart.update("none");
 }

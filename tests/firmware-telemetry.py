@@ -28,9 +28,13 @@ const int FAN_ON=HIGH,FAN_OFF=LOW,BUZZER_ON=LOW,WL_CONNECTED=3;
 int outputs[5]={LOW,LOW,HIGH,LOW,HIGH};
 int digitalRead(int pin){return outputs[pin];}
 struct Wifi{int status(){return WL_CONNECTED;}} WiFi;
-bool sensorValid=true,danger=false,dfReady=true;
-float gasPPM=120,temperature=28.5,humidity=65;
+bool sensorValid=true,danger=false,dfReady=true,valveLatched=false,voicePlaybackRequested=false;
+const float GAS_SAFE_PPM=100;
+float gasPPM=80,temperature=28.5,humidity=65;
 '''
+sketch = (repo / 'firmware/GLiPS/GLiPS.ino').read_text()
+helper_start = sketch.index('const char* currentGasStatus()')
+source += sketch[helper_start:sketch.index('\nvoid restoreValveLatch()', helper_start)]
 if '--complete' in sys.argv:
     sketch = (repo / 'firmware/GLiPS/GLiPS.ino').read_text()
     start = sketch.index('String buildSupabaseJson() {')
@@ -41,7 +45,7 @@ else:
 source += r'''
 int main(){
 std::cout<<buildSupabaseJson()<<"\n";
-danger=true;gasPPM=1500;outputs[0]=HIGH;outputs[1]=HIGH;outputs[2]=LOW;outputs[3]=HIGH;outputs[4]=LOW;
+danger=true;valveLatched=true;voicePlaybackRequested=true;gasPPM=350;outputs[0]=HIGH;outputs[1]=HIGH;outputs[2]=LOW;outputs[3]=HIGH;outputs[4]=LOW;
 std::cout<<buildSupabaseJson()<<"\n";
 sensorValid=false;dfReady=false;gasPPM=NAN;
 std::cout<<buildSupabaseJson()<<"\n";
@@ -55,15 +59,17 @@ with tempfile.TemporaryDirectory() as tmp:
     rows = [json.loads(line) for line in subprocess.check_output([str(binary)], text=True).splitlines()]
 safe, danger, invalid = rows
 assert safe['hardware_outputs'] == {
-    'kind':'output_commands','gas_valve':'RELAY LOW','exhaust_fan':'OFF',
+    'kind':'output_commands','valve_latched':False,'gas_valve':'RELAY LOW','exhaust_fan':'OFF',
     'buzzer':'OFF','red_led':'OFF','green_led':'ON',
     'voice_alert':'STOP REQUESTED','wifi_connected':True,
 }
 assert danger['hardware_outputs']['gas_valve'] == 'RELAY HIGH'
+assert danger['hardware_outputs']['valve_latched'] is True
+assert invalid['hardware_outputs']['valve_latched'] is True
 assert danger['hardware_outputs']['exhaust_fan'] == 'ON'
 assert danger['hardware_outputs']['buzzer'] == 'ON'  # active-low buzzer
 assert danger['hardware_outputs']['voice_alert'] == 'PLAY REQUESTED'
 assert invalid['status'] == 'SENSOR ERROR'
 assert invalid['hardware_outputs']['voice_alert'] == 'UNAVAILABLE'
-assert safe['gas_ppm'] == 120 and danger['gas_ppm'] == 1500
+assert safe['gas_ppm'] == 80 and danger['gas_ppm'] == 350
 print('PASS compiled replacement produces valid JSON and GPIO command states; full ESP sketch untested')

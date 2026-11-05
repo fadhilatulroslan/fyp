@@ -1,10 +1,8 @@
-// For the full-system sketch with DFPlayer and FAN_ON.
-// Requires hardware_outputs JSONB in sensor_data.
+// v4: requires currentGasStatus(), voicePlaybackRequested and valveLatched from the complete sketch.
+// Prefer the complete GLiPS.ino to avoid mixing firmware versions.
 
 String buildSupabaseJson() {
-  String statusText =
-    !sensorValid ? "SENSOR ERROR" :
-    (danger ? "DANGER" : "SAFE");
+  String statusText = currentGasStatus();
 
   String json = "{";
 
@@ -24,12 +22,13 @@ String buildSupabaseJson() {
   // GPIO commands reported by this firmware; not physical feedback.
   json += "\"hardware_outputs\":{";
   json += "\"kind\":\"output_commands\",";
+  json += "\"valve_latched\":" + String(valveLatched ? "true" : "false") + ",";
   json += "\"gas_valve\":\"" + String(digitalRead(RELAY_VALVE) == HIGH ? "RELAY HIGH" : "RELAY LOW") + "\",";
   json += "\"exhaust_fan\":\"" + String(digitalRead(RELAY_FAN) == FAN_ON ? "ON" : "OFF") + "\",";
   json += "\"buzzer\":\"" + String(digitalRead(BUZZER_PIN) == BUZZER_ON ? "ON" : "OFF") + "\",";
   json += "\"red_led\":\"" + String(digitalRead(LED_RED) == HIGH ? "ON" : "OFF") + "\",";
   json += "\"green_led\":\"" + String(digitalRead(LED_GREEN) == HIGH ? "ON" : "OFF") + "\",";
-  json += "\"voice_alert\":\"" + String(!dfReady ? "UNAVAILABLE" : sensorValid && danger ? "PLAY REQUESTED" : "STOP REQUESTED") + "\",";
+  json += "\"voice_alert\":\"" + String(!dfReady ? "UNAVAILABLE" : voicePlaybackRequested ? "PLAY REQUESTED" : "STOP REQUESTED") + "\",";
   json += "\"wifi_connected\":" + String(WiFi.status() == WL_CONNECTED ? "true" : "false");
   json += "},";
 

@@ -1,45 +1,68 @@
-# GLiPS full-system firmware
+# GLiPS full-system firmware — v4
 
-The current `GLiPS/GLiPS.ino` uses the user's supplied full-system sketch as its
-base. GPIO pin assignments, relay polarity macros, output-control functions,
-LCD logic, DFPlayer play/stop behavior, camera configuration, and operating mode
-are preserved from that source. It does not use the earlier actuator-disabled
-sketch as its base.
+The complete `GLiPS/GLiPS.ino` includes the supplied hardware pins, LCD,
+DFPlayer, sensor routines, camera, Supabase and Telegram integrations. Credentials
+are blank in the public sketch. Changes below implement the user's approved
+thresholds and manual valve-reset behavior; actual hardware is not validated here.
 
-## Included integrations
+## Gas states and outputs
 
-- `buildSupabaseJson()` uploads `hardware_outputs` with GPIO command states,
-  Wi-Fi connectivity, and DFPlayer play/stop requests or UNAVAILABLE.
-- Publishable Supabase keys go in `apikey`; Bearer Authorization is added only
-  for legacy JWT-style keys. Key validity and insert permissions need a live test.
-- Telegram photo sending copies the frame and returns the camera driver's buffer
-  before network I/O, without reading that buffer again after release.
-- Serial Monitor identifies `GLiPS firmware: full-system + output-telemetry v3`
-  and prints `SUPABASE payload includes hardware_outputs` before uploading.
-- Dashboard gas thresholds match 1000 ppm danger entry and 800 ppm recovery.
-  An explicit valid ESP status takes precedence in the hysteresis band.
+- At or below 100 ppm: SAFE.
+- Above 100 ppm: WARNING unless DANGER is retained.
+- Enter DANGER at 300 ppm or above.
+- Once in DANGER, retain it until a valid reading is at or below 250 ppm.
+- Sensor errors do not count as recovery or clear the valve latch.
 
-## Installation
+DANGER requests fan and buzzer ON and DFPlayer track 1. Recovery stops fan,
+buzzer, and voice requests. Green LED indicates SAFE; red LED indicates WARNING,
+DANGER, or invalid sensor state. Voice telemetry reports a play/stop request,
+not verified audible playback.
 
-1. Run `supabase/hardware-telemetry.sql` in Supabase SQL Editor if the column is
-   not already present. Existing rows remain NULL; inspect newly inserted rows.
-2. Copy the complete sketch from `GLiPS/GLiPS.ino` into an Arduino sketch folder
-   named GLiPS. Fill WIFI_SSID, WIFI_PASS, BOT_TOKEN, CHAT_ID and SUPABASE_KEY only
-   in the local copy. Do not publish the filled copy.
-3. Use the ESP32-S3 board settings and installed libraries from the working
-   original sketch, including DHT, LiquidCrystal_I2C, DFRobotDFPlayerMini, and the
-   ESP32 camera support. Compile and upload via USB.
-4. Open Serial Monitor at 115200 and verify the v3 build marker, successful
-   Supabase HTTP response, and non-NULL hardware_outputs on a NEW database row.
-5. Refresh the dashboard. Reported fan/buzzer/LED states should match the uploaded
-   commands. Valve RELAY HIGH/LOW is a GPIO level, not a verified physical position.
+The valve relay latches to the existing VALVE_RELAY_DANGER GPIO level after a
+DANGER transition and stays there even when gas status recovers. The latch is
+stored in ESP Preferences (NVS) for normal restarts. On startup the stored state
+is read before enabling the valve output. Unavailable storage commands the
+latched relay level and disables reset. Storage write failures are reported on
+Serial Monitor; do not assume persistence succeeded if that error occurs. Erasing
+NVS/flash clears saved state; this software cannot guarantee GPIO levels during
+reset, startup, or loss of power. These are GPIO commands, not physical position
+feedback. Relay polarity and VALVE_RELAY_TEST remain as supplied.
 
-`buildSupabaseJson-replacement.txt` targets this full-system DFPlayer version only;
-using the complete sketch avoids mixing functions from incompatible versions.
+## Local manual reset
 
-## Validation and remaining limits
+After inspecting the area and confirming the intended valve/relay behavior:
 
-Host checks (no hardware or network operation):
+1. Open Serial Monitor at 115200, with Newline or Both NL & CR selected.
+2. Wait for a valid SAFE reading (at or below 100 ppm), no more than 4 seconds old.
+3. Enter `RESET_VALVE` and Send.
+4. Verify `VALVE: manual reset accepted; normal relay command restored`.
+
+DANGER, WARNING, invalid/stale readings, or unavailable latch storage reject the
+reset. No dashboard button or recovery reading automatically releases the latch.
+The dashboard displays Latched only when reported in fresh hardware_outputs;
+physical valve movement is not established by that label.
+
+## Install and verify
+
+1. Run `supabase/hardware-telemetry.sql` if hardware_outputs does not exist.
+2. Copy `GLiPS/GLiPS.ino` into an Arduino sketch folder named GLiPS. Fill only the
+   five local credentials: WIFI_SSID, WIFI_PASS, BOT_TOKEN, CHAT_ID, SUPABASE_KEY.
+   Never publish the filled sketch.
+3. Use the board settings/libraries from the working original: ESP32-S3 core,
+   DHT, LiquidCrystal_I2C, DFRobotDFPlayerMini and ESP camera support. Preferences
+   is included in the ESP32 core. Compile and upload via USB.
+4. Verify `GLiPS firmware: 300/250 hysteresis + manual valve reset v4` at 115200,
+   a successful Supabase HTTP result, and hardware_outputs JSON in a NEW row.
+5. Check SAFE/WARNING/DANGER, GPIO reports, recovery with valve still latched,
+   rejection of an unsafe reset, and explicit SAFE reset. Confirm the physical
+   relay/valve separately before connecting this to a real gas supply.
+
+The complete sketch is required: the payload-only replacement depends on other
+v4 helpers and is not a standalone upgrade to v3.
+
+## Validation and limits
+
+Host tests compile actual functions using stub peripherals; no hardware is operated:
 
 ```sh
 python3 tests/firmware-outputs.py
@@ -48,21 +71,16 @@ python3 tests/firmware-telemetry.py --complete
 python3 tests/firmware-photo.py
 ```
 
-These compile the actual GPIO/DFPlayer, payload, and photo-buffer functions with
-host stubs. Safe/danger/recovery/invalid commands, valid JSON, and early frame
-release are checked. They do not compile the whole sketch for an ESP board or
-prove physical actuator operation, camera stability, or delivery to Supabase and
-Telegram. Full-board compilation and testing remain required.
+Tests cover threshold boundaries/hysteresis, output commands, persistent latch,
+fresh SAFE-only reset, stale/invalid/storage-failure rejection, serial parsing,
+payload JSON, and early camera-frame release during Telegram photo upload.
+They do not compile the complete sketch for an ESP board, prove NVS hardware
+behavior, physical actuator operation, live backend delivery, or streaming stability.
 
-DEMO_MODE remains true, exactly as in the supplied source. In that mode gas,
-temperature, and humidity are simulated; the supplied actuator logic still runs.
-MQ_R0 remains NAN, so real MQ-6 operation requires calibration. VALVE_RELAY_TEST
-remains enabled, and relay polarity is preserved, not independently verified.
-Physical feedback would be required to establish valve/fan operation. Existing
-setInsecure() calls remain in the user-supplied network code; TLS certificate
-verification is not addressed by this integration.
-
-Sensor/LCD updates remain in the original main loop and can be delayed by
-blocking Internet requests. The camera buffer correction reduces one source of
-contention but does not establish that Wi-Fi, power, the tunnel, or the full
-firmware is stable. Keep other stream viewers closed while testing.
+DEMO_MODE remains enabled. Its simulated readings are 80/350 ppm, allowing SAFE,
+DANGER and manual-reset testing; WARNING/boundary behavior is covered by host
+fixtures. Real MQ-6 operation still needs MQ_R0 calibration. Demo mode runs the
+actual output logic, as the original full-system sketch did. Existing setInsecure()
+calls remain from the supplied network code; TLS trust is not corrected here.
+Sensor/LCD updates may be delayed by blocking Internet requests. Camera streams
+and Quick Tunnel reachability still require validation on the user's equipment.

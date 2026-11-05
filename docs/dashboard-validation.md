@@ -60,8 +60,9 @@ endpoint is independent. The supplied firmware is not committed because it conta
 credentials.
 
 The firmware currently enables DEMO_MODE, alternating 120/1500 ppm every 15 seconds.
-Its danger entry/recovery thresholds are 1000/800 ppm. The current dashboard now
-matches those thresholds and honors explicit ESP status in the hysteresis band.
+The original supplied thresholds were 1000/800 ppm. Current v4 follows the
+user-approved 300 ppm danger trigger, 250 ppm clear threshold and 100 ppm SAFE
+limit. The dashboard honors reported DANGER only within that hysteresis band.
 MQ_R0 is NAN, so real MQ-6 measurements cannot work until calibrated. Invalid
 measurements are currently uploaded as zero with SENSOR ERROR; the frontend now
 honors this status, excludes the reading from the graph/history, and shows unknown
@@ -94,9 +95,19 @@ rejected. Reopen Start Live Monitoring after saving. A saved value takes precede
 over CONFIG.cameraStreamUrl on subsequent visits; update the field whenever
 cloudflared creates a new hostname. This setting does not fix ESP/network outages.
 
-## Full-system v3 integration
+## Full-system integration
 
 The latest full-system sketch supplied by the user restores original fan, buzzer,
 valve relay-test, LEDs, LCD and DFPlayer control. That source is the base of the
 current complete sketch, with its output functions preserved. See firmware/README.md
 for the current build, host checks, and remaining physical/board validation limits.
+
+## v4 hysteresis and manually reset valve
+
+Current firmware retains DANGER after 300 ppm until at or below 250 ppm. The
+valve relay latch is independent of gas-state recovery and is stored in ESP
+Preferences for normal restarts. A fresh SAFE reading at or below 100 ppm and
+local RESET_VALVE serial command are required to release it. The dashboard reads
+hardware_outputs.valve_latched and can show SAFE gas alongside a Latched valve.
+No physical valve position is inferred. See firmware/README.md for test limits,
+storage handling, upload steps, and manual reset instructions.

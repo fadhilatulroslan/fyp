@@ -63,6 +63,10 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
       await page.locator('.hardware-grid').screenshot({path:path.join(process.env.GLIPS_SCREENSHOT_DIR,'glips-safety-response.png')});
       await page.locator('.connection-strip').screenshot({path:path.join(process.env.GLIPS_SCREENSHOT_DIR,'glips-connections.png')});
     }
+    rows=[{...rows[0],id:103,status:'SAFE',gas_ppm:80,hardware_outputs:{gas_valve:'RELAY HIGH',valve_latched:true,buzzer:'OFF',red_led:'OFF',green_led:'ON'}}];await page.evaluate(()=>manualRefresh());
+    assert.equal(await text('heroStatus'),'SYSTEM SAFE');assert.equal(await text('gasValveStatus'),'Latched');
+    assert.match(await text('gasValveDetail'),/manual reset required/);assert.match(await text('valveResetStatus'),/required/);
+    assert.equal(await text('alarmStatus'),'Inactive');
     rows=[{...rows[0],id:102,hardware_outputs:{buzzer:'OFF',red_led:'OFF',green_led:'ON'}}];await page.evaluate(()=>manualRefresh());
     assert.equal(await text('alarmStatus'),'Inactive');
     rows=[{...rows[0],id:101,hardware_outputs:{buzzer:'ON'}}];await page.evaluate(()=>manualRefresh());
@@ -72,7 +76,7 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await page.locator('#dotAlarm').evaluate(el=>el.classList.contains('active')),false);
     console.log('PASS ESP nested output commands, expanded details, reporting indicators, missing fields');
 
-    for (const [id,gas,status] of [[2,900,'WARNING'],[3,1500,'DANGER DETECTED'],[4,120,'SYSTEM SAFE']]) {
+    for (const [id,gas,status] of [[2,200,'WARNING'],[3,350,'DANGER DETECTED'],[4,80,'SYSTEM SAFE']]) {
       rows=[row(id,gas),...rows];await page.evaluate(()=>manualRefresh());assert.equal(await text('heroStatus'),status);
     }
     assert.equal(await page.locator('#alertTableBody .danger').count(),1);assert.equal(await page.locator('#alertTableBody .warning').count(),1);
@@ -133,10 +137,12 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await page.evaluate(()=>getMonthKey(new Date('2026-10-31T17:00:00Z'))),'2026-11');
     assert.equal(await page.evaluate(()=>numberOrNull('   ')),null);assert.equal(await page.evaluate(()=>numberOrNull(false)),null);
     assert.equal(await page.evaluate(()=>getGasStatus(-1)),'UNKNOWN');
-    assert.equal(await page.evaluate(()=>getReadingStatus({gas_ppm:120,status:'SAFE'})),'SAFE');
-    assert.equal(await page.evaluate(()=>getReadingStatus({gas_ppm:900,status:'DANGER'})),'DANGER');
-    assert.equal(await page.evaluate(()=>getReadingStatus({gas_ppm:900,status:'SAFE'})),'SAFE');
+    assert.equal(await page.evaluate(()=>getReadingStatus({gas_ppm:80,status:'SAFE'})),'SAFE');
+    assert.equal(await page.evaluate(()=>getReadingStatus({gas_ppm:275,status:'DANGER'})),'DANGER');
+    assert.equal(await page.evaluate(()=>getReadingStatus({gas_ppm:275,status:'SAFE'})),'WARNING');
     assert.equal(await page.evaluate(()=>getReadingStatus({gas_ppm:0,status:'SENSOR ERROR'})),'UNKNOWN');
+    assert.equal(await page.evaluate(()=>getReadingStatus({gas_ppm:250,status:'DANGER'})),'WARNING');
+    assert.equal(await page.evaluate(()=>getReadingStatus({gas_ppm:300,status:'SAFE'})),'DANGER');
     await page.evaluate(()=>{alertHistory=[{id:10,created_at:'2026-10-31T17:00:00Z',status:'WARNING',gas_ppm:150},{id:11,created_at:'2026-09-01T00:00:00Z',status:'DANGER',gas_ppm:400}];updateMonthFilter();document.getElementById('monthFilter').value='2026-11';filterAlertsByMonth()});
     assert.equal(await page.locator('#alertTableBody tr').count(),1);assert.match(await page.locator('#alertTableBody').innerText(),/WARNING/);
     const hardware=page.locator('[onclick="toggleHardware(this)"]').first();await hardware.click();assert.match(await hardware.getAttribute('class'),/expanded/);

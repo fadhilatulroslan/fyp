@@ -421,7 +421,7 @@
                   <span class="range-dot safe"></span>
 
                   <span>
-                    SAFE reset: 800 ppm and below
+                    SAFE: 100 ppm and below
                   </span>
 
                 </div>
@@ -432,7 +432,7 @@
                   <span class="range-dot warning"></span>
 
                   <span>
-                    800–1000 ppm: ESP32 retains its previous state
+                    WARNING: above 100 ppm; DANGER resets at 250 ppm
                   </span>
 
                 </div>
@@ -443,7 +443,7 @@
                   <span class="range-dot danger"></span>
 
                   <span>
-                    DANGER trigger: 1000 ppm and above
+                    DANGER trigger: 300 ppm and above
                   </span>
 
                 </div>
@@ -492,8 +492,8 @@
             <div class="gas-bar-labels">
 
               <span>0</span>
-              <span>800</span>
-              <span>1000</span>
+              <span>100</span>
+              <span>300</span>
               <span>500+</span>
 
             </div>
@@ -697,7 +697,7 @@
           <span class="legend-item safe">
 
             <i class="ti ti-point-filled"></i>
-            SAFE RESET (≤800)
+            SAFE (≤100)
 
           </span>
 
@@ -705,7 +705,7 @@
           <span class="legend-item warning">
 
             <i class="ti ti-point-filled"></i>
-            TRANSITION BAND (800–1000)
+            WARNING (&gt;100)
 
           </span>
 
@@ -713,9 +713,10 @@
           <span class="legend-item danger">
 
             <i class="ti ti-point-filled"></i>
-            DANGER TRIGGER (1000+)
+            DANGER TRIGGER (300+)
 
           </span>
+          <span class="legend-item"><i class="ti ti-point-filled" style="color:#7c3aed"></i> DANGER RESET (≤250)</span>
 
         </div>
 
@@ -850,7 +851,7 @@
         <h2 id="safetyResponseTitle">Safety Response</h2>
         <span class="section-hint">Reported ESP32 output commands</span>
       </div>
-      <p class="response-note">Output reports do not confirm physical operation. Select a card for details.</p>
+      <p class="response-note">Output reports do not confirm physical operation. After DANGER, the valve relay stays latched until manually reset. Select a card for details.</p>
       <div class="hardware-grid">
         <!-- GAS VALVE -->
 
@@ -904,6 +905,7 @@
               <span id="gasValveDetail">--</span>
 
             </div>
+            <div class="hw-detail-row"><span>Reset</span><span id="valveResetStatus">Not reported</span></div>
 
           </div>
 
