@@ -1122,6 +1122,13 @@
             Camera access requires a reachable ESP32-S3
             connection. The live feed comes from the ESP32 camera.
           </p>
+          <details class="camera-settings">
+            <summary>Camera connection settings</summary>
+            <label for="cameraStreamUrlInput">HTTPS camera stream URL</label>
+            <input type="url" id="cameraStreamUrlInput" placeholder="https://your-tunnel.trycloudflare.com/stream" autocomplete="off" spellcheck="false">
+            <button type="button" class="btn-camera" onclick="saveCameraSettings()">Save camera URL</button>
+            <p>Update this URL when your tunnel restarts. Saved on this browser only. Anyone with the tunnel URL can view the camera while it is active.</p>
+          </details>
 
         </div>
 

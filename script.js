@@ -24,7 +24,7 @@ const CONFIG = {
 
   staleAfterMs: 20000,
 
-  cameraStreamUrl: "https://chemical-plenty-reasons-experiments.trycloudflare.com/stream",
+  cameraStreamUrl: "https://include-soviet-iowa-mere.trycloudflare.com/stream",
 
   aiEndpoint:
     "https://fkfgimyelgvlsbtxhvih.supabase.co/functions/v1/glips-ai",
@@ -2016,6 +2016,40 @@ function getCameraImage() {
    START / STOP CAMERA
    ===================================================== */
 
+function normalizeCameraUrl(value) {
+  const url = new URL(String(value).trim());
+  if (url.protocol !== "https:" || url.username || url.password || url.hash) {
+    throw new Error("Use an HTTPS camera URL without credentials or a fragment.");
+  }
+  if (url.pathname === "/") url.pathname = "/stream";
+  return url.href;
+}
+
+function initializeCameraSettings() {
+  try {
+    const saved = localStorage.getItem("glips_camera_stream_url");
+    if (saved) CAMERA.stream = normalizeCameraUrl(saved);
+  } catch {
+    // Invalid saved values or unavailable storage use the configured default.
+    CAMERA.stream = CONFIG.cameraStreamUrl;
+  }
+  if ($("cameraStreamUrlInput")) $("cameraStreamUrlInput").value = CAMERA.stream;
+}
+
+function saveCameraSettings() {
+  try {
+    const url = normalizeCameraUrl($("cameraStreamUrlInput")?.value || "");
+    // Persist first; leave the working stream unchanged if saving fails.
+    localStorage.setItem("glips_camera_stream_url", url);
+    stopCamera();
+    CAMERA.stream = url;
+    $("cameraStreamUrlInput").value = url;
+    showToast("Camera URL saved on this browser. Select Start Live Monitoring.", "success");
+  } catch (error) {
+    showToast(`Camera URL not saved: ${error.message}`, "warning", 6000);
+  }
+}
+
 async function toggleCamera() {
   if (isCameraOn) {
     stopCamera();
@@ -3238,6 +3272,7 @@ showOffline = function (message) {
 
 // Initialize UI fixes
 function initializeGLiPSUIFixes() {
+  initializeCameraSettings();
   updateSoundButton();
 
   drawGasGauge(

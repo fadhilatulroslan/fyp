@@ -84,3 +84,12 @@ outages show distinct unknown reasons. The Alarm summary distinguishes Active,
 Inactive, and partial reports; green LED alone does not mean the alarm is active.
 This layout does not populate missing hardware_outputs or activate physical
 outputs. Apply the telemetry SQL and upload the matching firmware separately.
+
+## Changing a Quick Tunnel address
+
+The camera's Connection settings panel accepts an HTTPS tunnel base URL (adds
+/stream) or complete stream URL. Save camera URL stores it only in that browser
+and stops the current stream. Invalid protocols and embedded credentials are
+rejected. Reopen Start Live Monitoring after saving. A saved value takes precedence
+over CONFIG.cameraStreamUrl on subsequent visits; update the field whenever
+cloudflared creates a new hostname. This setting does not fix ESP/network outages.

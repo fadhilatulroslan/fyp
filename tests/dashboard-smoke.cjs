@@ -7,6 +7,7 @@ const path = require('node:path');
 const repo = path.resolve(__dirname, '..');
 const base = 'http://127.0.0.1:8765';
 const backend = 'https://fkfgimyelgvlsbtxhvih.supabase.co';
+const CONFIG_TEST_CAMERA_URL = 'https://include-soviet-iowa-mere.trycloudflare.com/stream';
 const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.now()-age).toISOString(),temperature:27,humidity:65,wifi_connected:true,gas_valve:'CLOSED',exhaust_fan:true});
 (async () => {
   const server = spawn('python3', ['-u','-m','http.server','8765','--bind','127.0.0.1'], {cwd:repo,stdio:['ignore','ignore','pipe']});
@@ -35,7 +36,7 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
       if(url.pathname.endsWith('/test-telegram')) {telegramCalls++;return route.fulfill({contentType:'application/json',body:'{"ok":true}'});}
       return route.fulfill({status:401,contentType:'application/json',body:'{"message":"No real authentication in tests"}'});
     });
-    await page.route('https://chemical-plenty-reasons-experiments.trycloudflare.com/stream*', r=>r.fulfill({contentType:'image/png',path:path.join(repo,'esp.png')}));
+    await page.route('https://include-soviet-iowa-mere.trycloudflare.com/stream*', r=>r.fulfill({contentType:'image/png',path:path.join(repo,'esp.png')}));
     await page.goto(base+'/dashboard.html',{waitUntil:'networkidle'});
     await page.waitForFunction(()=>!isLoading && databaseConnected && historyLoadedFromServer);
     const text=id=>page.locator('#'+id).innerText();
@@ -104,8 +105,18 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     await page.evaluate(()=>sendTelegramAlert());assert.equal(telegramCalls,0);
     await page.evaluate(()=>{CONFIG.telegramAlertEndpoint=CONFIG.supabaseUrl+'/functions/v1/test-telegram'});await page.evaluate(()=>Promise.all([sendTelegramAlert(),sendTelegramAlert()]));assert.equal(telegramCalls,1);assert.match(await page.locator('.glips-toast').innerText(),/Telegram alert sent/);
     console.log('PASS simulated AI response/error, escaped content, Telegram config and duplicate-send guard');
+    await page.locator('.camera-settings summary').click();
+    await page.locator('#cameraStreamUrlInput').fill('https://include-soviet-iowa-mere.trycloudflare.com');
+    await page.getByRole('button',{name:'Save camera URL',exact:true}).click();
+    assert.equal(await page.evaluate(()=>CAMERA.stream),CONFIG_TEST_CAMERA_URL);
+    await page.locator('#cameraStreamUrlInput').fill('http://invalid.example/stream');
+    await page.getByRole('button',{name:'Save camera URL',exact:true}).click();
+    assert.equal(await page.evaluate(()=>CAMERA.stream),CONFIG_TEST_CAMERA_URL);
+    await page.evaluate(()=>initializeCameraSettings());
+    assert.equal(await page.locator('#cameraStreamUrlInput').inputValue(),CONFIG_TEST_CAMERA_URL);
+    console.log('PASS editable HTTPS camera URL, base URL normalization, persistence, invalid URL rejection');
     await page.locator('#cameraToggleBtn').click();await page.waitForFunction(()=>document.getElementById('cameraStatusText').textContent==='Streaming');await page.locator('#cameraToggleBtn').click();assert.equal(await text('cameraStatusText'),'Offline');
-    await page.route('https://chemical-plenty-reasons-experiments.trycloudflare.com/stream*',r=>r.abort());await page.locator('#cameraToggleBtn').click();await page.waitForFunction(()=>document.getElementById('cameraStatusText').textContent==='Connection failed');
+    await page.route('https://include-soviet-iowa-mere.trycloudflare.com/stream*',r=>r.abort());await page.locator('#cameraToggleBtn').click();await page.waitForFunction(()=>document.getElementById('cameraStatusText').textContent==='Connection failed');
     assert.equal(await page.locator('#captureBtn,#sendPhotoBtn').count(),0);
     await page.locator('#soundBtn').click();assert.equal(await page.locator('#soundBtn').getAttribute('aria-pressed'),'false');
     await page.evaluate(()=>openAIChat());await page.keyboard.press('Escape');assert.equal(await page.locator('#chatModal').isVisible(),false);
@@ -126,7 +137,7 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await page.locator('#alertTableBody tr').count(),1);assert.match(await page.locator('#alertTableBody').innerText(),/WARNING/);
     const hardware=page.locator('[onclick="toggleHardware(this)"]').first();await hardware.click();assert.match(await hardware.getAttribute('class'),/expanded/);
     const alarmCard=page.locator('.hardware-card').filter({has:page.locator('#alarmStatus')});await alarmCard.focus();await page.keyboard.press('Enter');assert.equal(await alarmCard.getAttribute('aria-expanded'),'true');
-    await page.clock.install();await page.route('https://chemical-plenty-reasons-experiments.trycloudflare.com/stream*',()=>{});await page.locator('#cameraToggleBtn').click();await page.clock.fastForward(15001);assert.equal(await text('cameraStatusText'),'Connection timed out');
+    await page.clock.install();await page.route('https://include-soviet-iowa-mere.trycloudflare.com/stream*',()=>{});await page.locator('#cameraToggleBtn').click();await page.clock.fastForward(15001);assert.equal(await text('cameraStatusText'),'Connection timed out');
     await page.clock.resume();
     // A new dashboard navigation with no session must go back to login without reading data.
     await page.unroute('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2*');
