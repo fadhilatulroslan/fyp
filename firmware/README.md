@@ -42,3 +42,15 @@ telemetry does not activate them. The latest sendTelegramPhoto still accesses
 fb->len after returning the frame buffer, and photos and streaming share one
 frame buffer. Those are separate firmware issues requiring a device-validated
 camera update. No credentials from the uploaded sketches are committed.
+
+## Complete sketch for the latest uploaded version
+
+`GLiPS/GLiPS.ino` is the complete latest uploaded sketch with the tested telemetry
+function already inserted. WIFI_SSID, WIFI_PASS, BOT_TOKEN, CHAT_ID and
+SUPABASE_KEY are blank. Fill them only in your local copy; do not commit or send
+that filled copy. Open it inside a folder named GLiPS in Arduino IDE, use your
+existing board/library settings, compile, and upload. Apply the SQL column first.
+
+This full sketch has not been compiled for an ESP board or flashed here. Its
+actuator OFF logic and existing TLS/camera limitations are preserved, not fixed
+by the telemetry integration. GPIO reports describe output commands only.
