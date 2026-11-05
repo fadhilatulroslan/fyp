@@ -289,6 +289,12 @@
 
 
 
+    <section class="connection-strip" aria-label="System connection status">
+      <div class="connection-item"><i class="ti ti-cpu" aria-hidden="true"></i><span>ESP32</span><strong id="quickESP32">Checking...</strong></div>
+      <div class="connection-item"><i class="ti ti-database" aria-hidden="true"></i><span>Database</span><strong id="quickSupabase">Connecting...</strong></div>
+      <div class="connection-item"><i class="ti ti-clock" aria-hidden="true"></i><span>Last reading</span><strong id="quickUpdate">No readings received</strong></div>
+    </section>
+
     <!-- ========================================
          SENSOR SUMMARY
     ======================================== -->
@@ -837,38 +843,26 @@
 
 
 
-    <!-- ========================================
-         AUTOMATIC SAFETY RESPONSE
-    ======================================== -->
-
-    <section class="section">
-
+    <!-- SAFETY RESPONSE: reported commands, not inferred physical feedback -->
+    <section class="section" aria-labelledby="safetyResponseTitle">
       <div class="section-title">
-
         <i class="ti ti-settings-automation"></i>
-
-        <h2>Automatic Safety Response</h2>
-
-        <span class="section-hint">
-          Output commands reported by ESP32; physical operation not verified
-        </span>
-
+        <h2 id="safetyResponseTitle">Safety Response</h2>
+        <span class="section-hint">Reported ESP32 output commands</span>
       </div>
-
-
-
+      <p class="response-note">Output reports do not confirm physical operation. Select a card for details.</p>
       <div class="hardware-grid">
-
-
         <!-- GAS VALVE -->
 
         <div class="hardware-card expandable"
-             onclick="toggleHardware(this)">
+             onclick="toggleHardware(this)"
+             role="button" tabindex="0" aria-expanded="false"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleHardware(this)}">
 
           <div class="hw-card-top">
 
             <div class="hw-icon valve">
-              <i class="ti ti-valve"></i>
+              <i class="ti ti-lock"></i>
             </div>
 
             <span class="hw-name">
@@ -884,7 +878,7 @@
 
             <span class="status-badge"
                   id="gasValveStatus">
-              --
+              Not reported
             </span>
 
           </div>
@@ -920,7 +914,9 @@
         <!-- EXHAUST FAN -->
 
         <div class="hardware-card expandable"
-             onclick="toggleHardware(this)">
+             onclick="toggleHardware(this)"
+             role="button" tabindex="0" aria-expanded="false"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleHardware(this)}">
 
           <div class="hw-card-top">
 
@@ -941,7 +937,7 @@
 
             <span class="status-badge"
                   id="exhaustFanStatus">
-              --
+              Not reported
             </span>
 
           </div>
@@ -974,237 +970,26 @@
 
 
 
-        <!-- BUZZER -->
 
-        <div class="hardware-card expandable"
-             onclick="toggleHardware(this)">
-
+        <div class="hardware-card expandable" onclick="toggleHardware(this)"
+             role="button" tabindex="0" aria-expanded="false"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleHardware(this)}">
           <div class="hw-card-top">
-
-            <div class="hw-icon buzzer">
-              <i class="ti ti-volume"></i>
-            </div>
-
-            <span class="hw-name">
-              Buzzer
-            </span>
-
-            <span class="hw-live-dot"
-                  id="dotBuzzer"></span>
-
-            <span class="hw-expand-arrow">
-              <i class="ti ti-chevron-down"></i>
-            </span>
-
-            <span class="status-badge"
-                  id="buzzerStatus">
-              --
-            </span>
-
+            <div class="hw-icon buzzer"><i class="ti ti-bell-ringing"></i></div>
+            <span class="hw-name">Alarm</span>
+            <span class="hw-live-dot" id="dotAlarm"></span>
+            <span class="hw-expand-arrow"><i class="ti ti-chevron-down"></i></span>
+            <span class="status-badge" id="alarmStatus">Not reported</span>
           </div>
-
-
-          <div class="hw-explanation">
-            Audible gas warning.
-          </div>
-
-
+          <div class="hw-explanation">Buzzer and warning indicators reported by ESP32.</div>
           <div class="hw-detail">
-
-            <div class="hw-detail-row">
-
-              <span>Function</span>
-              <span>Emergency sound alert</span>
-
-            </div>
-
-            <div class="hw-detail-row">
-
-              <span>Status</span>
-              <span id="buzzerDetail">--</span>
-
-            </div>
-
+            <div class="hw-detail-row"><span>Buzzer</span><span id="buzzerStatus">Not reported</span></div>
+            <div class="hw-detail-row"><span>Red LED</span><span id="redLEDStatus">Not reported</span></div>
+            <div class="hw-detail-row"><span>Green LED</span><span id="greenLEDStatus">Not reported</span></div>
           </div>
-
         </div>
-
-
-
-        <!-- RED LED -->
-
-        <div class="hardware-card expandable"
-             onclick="toggleHardware(this)">
-
-          <div class="hw-card-top">
-
-            <div class="hw-icon led-red">
-              <i class="ti ti-bulb"></i>
-            </div>
-
-            <span class="hw-name">
-              Red LED
-            </span>
-
-            <span class="hw-live-dot"
-                  id="dotRedLED"></span>
-
-            <span class="hw-expand-arrow">
-              <i class="ti ti-chevron-down"></i>
-            </span>
-
-            <span class="status-badge"
-                  id="redLEDStatus">
-              --
-            </span>
-
-          </div>
-
-
-          <div class="hw-explanation">
-            Visual danger indicator.
-          </div>
-
-
-          <div class="hw-detail">
-
-            <div class="hw-detail-row">
-
-              <span>Function</span>
-              <span>Danger status indication</span>
-
-            </div>
-
-            <div class="hw-detail-row">
-
-              <span>Status</span>
-              <span id="redLEDDetail">--</span>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-
-        <!-- GREEN LED -->
-
-        <div class="hardware-card expandable"
-             onclick="toggleHardware(this)">
-
-          <div class="hw-card-top">
-
-            <div class="hw-icon led-green">
-              <i class="ti ti-bulb"></i>
-            </div>
-
-            <span class="hw-name">
-              Green LED
-            </span>
-
-            <span class="hw-live-dot"
-                  id="dotGreenLED"></span>
-
-            <span class="hw-expand-arrow">
-              <i class="ti ti-chevron-down"></i>
-            </span>
-
-            <span class="status-badge"
-                  id="greenLEDStatus">
-              --
-            </span>
-
-          </div>
-
-
-          <div class="hw-explanation">
-            Visual normal status indicator.
-          </div>
-
-
-          <div class="hw-detail">
-
-            <div class="hw-detail-row">
-
-              <span>Function</span>
-              <span>Safe status indication</span>
-
-            </div>
-
-            <div class="hw-detail-row">
-
-              <span>Status</span>
-              <span id="greenLEDDetail">--</span>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-
-        <!-- VOICE ALERT -->
-
-        <div class="hardware-card expandable"
-             onclick="toggleHardware(this)">
-
-          <div class="hw-card-top">
-
-            <div class="hw-icon buzzer">
-              <i class="ti ti-speakerphone"></i>
-            </div>
-
-            <span class="hw-name">
-              Voice Alert
-            </span>
-
-            <span class="hw-live-dot"
-                  id="dotVoiceAlert"></span>
-
-            <span class="hw-expand-arrow">
-              <i class="ti ti-chevron-down"></i>
-            </span>
-
-            <span class="status-badge"
-                  id="voiceAlertStatus">
-              --
-            </span>
-
-          </div>
-
-
-          <div class="hw-explanation">
-            Optional voice warning status.
-          </div>
-
-
-          <div class="hw-detail">
-
-            <div class="hw-detail-row">
-
-              <span>Function</span>
-              <span>Voice notification</span>
-
-            </div>
-
-            <div class="hw-detail-row">
-
-              <span>Status</span>
-              <span id="voiceAlertDetail">--</span>
-
-            </div>
-
-          </div>
-
-        </div>
-
       </div>
-
     </section>
-
-
 
     <!-- ========================================
          SECURITY CAMERA
@@ -1437,143 +1222,6 @@
           </tbody>
 
         </table>
-
-      </div>
-
-    </section>
-
-
-
-    <!-- ========================================
-         SYSTEM CONNECTIVITY
-    ======================================== -->
-
-    <section class="section">
-
-      <div class="section-title">
-
-        <i class="ti ti-wifi"></i>
-
-        <h2>System Connectivity</h2>
-
-      </div>
-
-
-
-      <div class="connectivity-grid">
-
-
-        <div class="connectivity-card">
-
-          <div class="conn-icon">
-            <i class="ti ti-cpu"></i>
-          </div>
-
-          <div class="conn-name">
-            ESP32-S3
-          </div>
-
-          <div class="conn-value"
-               id="quickESP32">
-            --
-          </div>
-
-        </div>
-
-
-
-        <div class="connectivity-card">
-
-          <div class="conn-icon">
-            <i class="ti ti-wifi"></i>
-          </div>
-
-          <div class="conn-name">
-            Wi-Fi
-          </div>
-
-          <div class="conn-value"
-               id="quickWiFi">
-            --
-          </div>
-
-        </div>
-
-
-
-        <div class="connectivity-card">
-
-          <div class="conn-icon">
-            <i class="ti ti-database"></i>
-          </div>
-
-          <div class="conn-name">
-            Supabase
-          </div>
-
-          <div class="conn-value"
-               id="quickSupabase">
-            --
-          </div>
-
-        </div>
-
-
-
-        <div class="connectivity-card">
-
-          <div class="conn-icon">
-            <i class="ti ti-brand-telegram"></i>
-          </div>
-
-          <div class="conn-name">
-            Telegram
-          </div>
-
-          <div class="conn-value"
-               id="quickTelegram">
-            --
-          </div>
-
-        </div>
-
-
-
-        <div class="connectivity-card">
-
-          <div class="conn-icon">
-            <i class="ti ti-temperature"></i>
-          </div>
-
-          <div class="conn-name">
-            DHT22
-          </div>
-
-          <div class="conn-value"
-               id="quickDHT">
-            --
-          </div>
-
-        </div>
-
-
-
-        <div class="connectivity-card">
-
-          <div class="conn-icon">
-            <i class="ti ti-clock"></i>
-          </div>
-
-          <div class="conn-name">
-            Last Update
-          </div>
-
-          <div class="conn-value"
-               id="quickUpdate">
-            --
-          </div>
-
-        </div>
 
       </div>
 

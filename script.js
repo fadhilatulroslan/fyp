@@ -284,7 +284,7 @@ function normalizeState(value) {
     return value ? "ON" : "OFF";
   }
 
-  return String(value).trim().toUpperCase();
+  return String(value).trim().toUpperCase() || "UNKNOWN";
 }
 
 /* =====================================================
@@ -512,7 +512,7 @@ function showOffline(message) {
     hero.classList.add("offline");
   }
 
-  updateHardware(null);
+  updateHardware(currentSensor);
   updateConnectivity(currentSensor);
   setHTML("heroIcon", '<i class="ti ti-wifi-off"></i>');
 
@@ -1023,14 +1023,6 @@ const HARDWARE_DEVICES = [
       "green_led",
       "green_led_status"
     ]
-  },
-
-  {
-    ids: ["voiceAlertStatus"],
-    fields: [
-      "voice_alert",
-      "voice_status"
-    ]
   }
 ];
 
@@ -1039,57 +1031,45 @@ const HARDWARE_DEVICES = [
    ===================================================== */
 
 function updateHardware(record) {
+  const fresh = databaseConnected && lastReadingFresh && record && !isReadingStale(record);
+  const unavailable = !databaseConnected ? "Unknown — database unavailable"
+    : !record ? "Not reported"
+    : isReadingStale(record) ? "Unknown — ESP offline"
+    : hasSensorFault(record) ? "Unknown — sensor error" : "Not reported";
+  const states = {};
+  const active = value => ["ON", "ACTIVE", "TRUE", "1", "PLAY REQUESTED", "RELAY HIGH"].includes(value);
   HARDWARE_DEVICES.forEach(device => {
-    const value =
-      lastReadingFresh && record && !isReadingStale(record)
-        ? normalizeState(
-            getField(record, device.fields)
-          )
-        : "UNKNOWN";
-
+    const value = fresh ? normalizeState(getField(record, device.fields)) : "UNKNOWN";
     device.ids.forEach(id => {
+      states[id] = value;
       const element = $(id);
-
       if (!element) return;
-
-      element.textContent = value;
+      const reported = value !== "UNKNOWN";
+      element.textContent = reported ? value : unavailable;
       const detail = $(id.replace(/Status$/, "Detail"));
-      if (detail) detail.textContent = value;
+      if (detail) detail.textContent = element.textContent;
       const dot = $("dot" + id.replace(/Status$/, "").replace(/^./, letter => letter.toUpperCase()));
       if (dot) {
-        const reported = lastReadingFresh && !isReadingStale(record) && value !== "UNKNOWN";
         dot.classList.toggle("active", reported);
-        dot.title = reported ? "Output reported by ESP32; physical feedback not available" : "Output state not reported";
+        dot.title = reported ? "Output reported; physical operation is not verified" : unavailable;
       }
-      element.title = value === "UNKNOWN"
-        ? "No current output state received from ESP32"
-        : "Reported output command; physical operation is not verified";
-
-      element.classList.remove(
-        "on",
-        "off",
-        "active",
-        "offline",
-        "closed"
-      );
-
-      if (value === "UNKNOWN") {
-        element.classList.add("offline");
-
-      } else if (
-        ["ON", "ACTIVE", "TRUE", "1", "PLAY REQUESTED", "RELAY HIGH"]
-          .includes(value)
-      ) {
-        element.classList.add("on");
-
-      } else if (value === "CLOSED") {
-        element.classList.add("closed");
-
-      } else {
-        element.classList.add("off");
-      }
+      element.title = reported ? "Reported output command; physical operation is not verified" : unavailable;
+      element.classList.remove("on", "off", "active", "offline", "closed");
+      element.classList.add(!reported ? "offline" : value === "CLOSED" ? "closed" : active(value) ? "on" : "off");
     });
   });
+  const alarmStates = [states.buzzerStatus, states.redLEDStatus, states.greenLEDStatus];
+  const reported = alarmStates.filter(value => value !== "UNKNOWN").length;
+  const alarmActive = active(states.buzzerStatus) || active(states.redLEDStatus);
+  setText("alarmStatus", !reported ? unavailable
+    : reported < 3 ? (alarmActive ? "Active · partial report" : "Partially reported")
+    : alarmActive ? "Active" : "Inactive");
+  const badge = $("alarmStatus");
+  if (badge) {
+    badge.classList.remove("on", "off", "closed", "offline");
+    badge.classList.add(!reported ? "offline" : alarmActive ? "closed" : reported < 3 ? "offline" : "off");
+  }
+  $("dotAlarm")?.classList.toggle("active", reported > 0);
 }
 
 /* =====================================================
@@ -1097,7 +1077,9 @@ function updateHardware(record) {
    ===================================================== */
 
 function toggleHardware(card) {
-  card?.classList.toggle("expanded");
+  if (!card) return;
+  const expanded = card.classList.toggle("expanded");
+  card.setAttribute("aria-expanded", String(expanded));
 }
 
 /* =====================================================
@@ -1105,24 +1087,16 @@ function toggleHardware(card) {
    ===================================================== */
 
 function updateConnectivity(record) {
-  const live = lastReadingFresh && !isReadingStale(record);
-  const reporting = live ? "Reporting" : databaseConnected && !isReadingStale(record) && hasSensorFault(record)
-    ? "Reporting · sensor error" : databaseConnected ? "Not reporting" : "Unknown";
-  setText("quickEsp32", reporting);
-  setText("quickESP32", reporting);
-  setText("esp32Status", live ? "REPORTING" : "UNKNOWN");
-  setText("esp32StatusBadge", live ? "ONLINE" : "OFFLINE");
+  const recent = databaseConnected && record && !isReadingStale(record);
+  const label = !databaseConnected ? "Unknown" : recent
+    ? hasSensorFault(record) ? "Online · sensor error" : "Online"
+    : record ? "Offline" : "Waiting for readings";
+  setText("quickESP32", label);
   setText("quickSupabase", databaseConnected ? "Connected" : "Disconnected");
-  const wifi = live ? getField(record, ["wifi_status", "wifi_connected"]) : null;
-  const wifiLabel = wifi === null ? (live ? "Not reported" : "Unknown") : normalizeState(wifi);
-  setText("wifiStatus", wifiLabel);
-  setText("quickWiFi", wifiLabel);
-  const temp = numberOrNull(getField(record, ["temperature", "temp"]));
-  const humid = numberOrNull(getField(record, ["humidity", "humid"]));
-  setText("quickDHT", !live ? "Unknown" : temp !== null && humid !== null ? "Reporting" : "Incomplete reading");
-  if (!CONFIG.telegramAlertEndpoint || !$("quickTelegram")?.dataset.checked) {
-    setText("quickTelegram", CONFIG.telegramAlertEndpoint ? "Not verified" : "Delivery not verified");
-  }
+  $("quickESP32")?.classList.toggle("online", Boolean(recent));
+  $("quickESP32")?.classList.toggle("offline", Boolean(databaseConnected && record && !recent));
+  $("quickSupabase")?.classList.toggle("online", databaseConnected);
+  $("quickSupabase")?.classList.toggle("offline", !databaseConnected);
   updateLastSeen();
 }
 

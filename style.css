@@ -2519,3 +2519,15 @@ canvas {
 .chart-container-full { position: relative; }
 .chart-empty-state { position: absolute; inset: 35% 12% auto; margin: 0; padding: 16px; text-align: center; color: #475569; background: rgba(255,255,255,.95); border: 1px solid #e2e8f0; border-radius: 10px; font-size: 13px; }
 .chart-empty-state[hidden] { display: none; }
+
+/* Compact connection summary and three response cards. */
+.connection-strip { display: flex; flex-wrap: wrap; gap: 12px 28px; padding: 14px 20px; margin-bottom: 22px; background: #fff; border: 1px solid var(--border-color); border-radius: 13px; }
+.connection-item { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--text-muted); min-width: 0; }
+.connection-item i { color: var(--color-info); font-size: 17px; }
+.connection-item strong { color: var(--text-dark); overflow-wrap: anywhere; }
+.connection-item strong.online { color: var(--color-safe); }
+.connection-item strong.offline { color: var(--color-danger); }
+.response-note { color: var(--text-muted); font-size: 12px; margin: -4px 0 16px; }
+.hardware-card[role="button"]:focus-visible { outline: 2px solid var(--color-info); outline-offset: 3px; }
+.hardware-card .status-badge { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .connection-strip { flex-direction: column; gap: 12px; padding: 14px; } .connection-item strong { margin-left: auto; } }

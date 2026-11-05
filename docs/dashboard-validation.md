@@ -70,3 +70,17 @@ frontend cannot verify valve/fan/LED/buzzer states. Firmware still captures Tele
 photos even though dashboard capture controls were removed. The firmware's use of
 setInsecure() and photo-buffer access after esp_camera_fb_return() also require a
 separate firmware correction and device validation before claiming readiness.
+
+## Compact English status layout
+
+Safety Response has three cards: Gas Valve, Exhaust Fan, and Alarm. Expand Alarm
+to see Buzzer, Red LED, and Green LED reports. Voice Alert is removed. A compact
+strip below the main readings contains ESP32, Database, and Last reading; the
+separate Wi-Fi, DHT22, and unverified Telegram cards are removed. Telegram send
+results still appear as toasts; message delivery is not inferred.
+
+Missing output fields show Not reported. Stale readings, sensor errors, and database
+outages show distinct unknown reasons. The Alarm summary distinguishes Active,
+Inactive, and partial reports; green LED alone does not mean the alarm is active.
+This layout does not populate missing hardware_outputs or activate physical
+outputs. Apply the telemetry SQL and upload the matching firmware separately.

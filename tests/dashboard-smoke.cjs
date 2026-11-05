@@ -41,9 +41,6 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     const text=id=>page.locator('#'+id).innerText();
     assert.equal(await text('heroStatus'),'SYSTEM SAFE');
     assert.equal(await text('quickSupabase'),'Connected');
-    assert.equal(await text('quickWiFi'),'ON');
-    assert.equal(await text('quickDHT'),'Reporting');
-    assert.equal(await text('quickTelegram'),'Delivery not verified');
     assert.match(await text('quickUpdate'),/ago/);
     assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),1);
     assert.equal(await page.evaluate(()=>currentChartPeriod),10);
@@ -51,15 +48,27 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await text('gasValveStatus'),'CLOSED');
     // Every inline button/change handler must have an existing global function.
     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('[onclick],[onchange]')].flatMap(el=>[el.getAttribute('onclick'),el.getAttribute('onchange')]).filter(Boolean).flatMap(code=>[...code.matchAll(/\b([A-Za-z_$][\w$]*)\(/g)].map(m=>m[1])).filter(name=>!['stopPropagation','if'].includes(name)&&typeof window[name]!=='function')),[]);
+    assert.equal(await page.locator('.hardware-grid > .hardware-card').count(),3);
+    assert.equal(await page.locator('#quickWiFi,#quickDHT,#quickTelegram,#voiceAlertStatus,.connectivity-grid').count(),0);
+    assert.equal(await page.locator('.connection-strip .connection-item').count(),3);
+    assert.equal(await text('quickESP32'),'Online');
     console.log('PASS live data, connectivity, hardware, chart defaults, inline handlers');
     rows=[{...row(100,45),gas_valve:undefined,exhaust_fan:undefined,wifi_connected:undefined,hardware_outputs:{kind:'output_commands',gas_valve:'RELAY HIGH',exhaust_fan:'ON',buzzer:'ON',red_led:'ON',green_led:'OFF',voice_alert:'PLAY REQUESTED',wifi_connected:true}}];
     await page.evaluate(()=>manualRefresh());
     assert.equal(await text('gasValveStatus'),'RELAY HIGH');assert.equal(await text('gasValveDetail'),'RELAY HIGH');
-    assert.equal(await text('exhaustFanStatus'),'ON');assert.equal(await text('voiceAlertStatus'),'PLAY REQUESTED');
-    assert.equal(await text('quickWiFi'),'ON');assert.match(await page.locator('#dotGasValve').getAttribute('class'),/active/);
+    assert.equal(await text('exhaustFanStatus'),'ON');assert.equal(await text('alarmStatus'),'Active');
+    assert.match(await page.locator('#dotGasValve').getAttribute('class'),/active/);
+    if (process.env.GLIPS_SCREENSHOT_DIR) {
+      await page.locator('.hardware-grid').screenshot({path:path.join(process.env.GLIPS_SCREENSHOT_DIR,'glips-safety-response.png')});
+      await page.locator('.connection-strip').screenshot({path:path.join(process.env.GLIPS_SCREENSHOT_DIR,'glips-connections.png')});
+    }
+    rows=[{...rows[0],id:102,hardware_outputs:{buzzer:'OFF',red_led:'OFF',green_led:'ON'}}];await page.evaluate(()=>manualRefresh());
+    assert.equal(await text('alarmStatus'),'Inactive');
+    rows=[{...rows[0],id:101,hardware_outputs:{buzzer:'ON'}}];await page.evaluate(()=>manualRefresh());
+    assert.equal(await text('alarmStatus'),'Active · partial report');assert.equal(await text('redLEDStatus'),'Not reported');
     rows=[row(1,45)];await page.evaluate(()=>manualRefresh());
-    assert.equal(await text('voiceAlertStatus'),'UNKNOWN');assert.equal(await text('voiceAlertDetail'),'UNKNOWN');
-    assert.equal(await page.locator('#dotVoiceAlert').evaluate(el=>el.classList.contains('active')),false);
+    assert.equal(await text('alarmStatus'),'Not reported');
+    assert.equal(await page.locator('#dotAlarm').evaluate(el=>el.classList.contains('active')),false);
     console.log('PASS ESP nested output commands, expanded details, reporting indicators, missing fields');
 
     for (const [id,gas,status] of [[2,150,'WARNING'],[3,400,'DANGER DETECTED'],[4,40,'SYSTEM SAFE']]) {
@@ -74,12 +83,12 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     rows=[row(5,70,25000)];await page.evaluate(()=>manualRefresh());
     assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),0);assert.match(await text('chartEmptyState'),/ESP32 offline/);
     await page.locator('.chart-btn[data-period="50"]').click();assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),0);
-    assert.equal(await text('gasValveStatus'),'UNKNOWN');assert.equal(await text('quickDHT'),'Unknown');
+    assert.equal(await text('gasValveStatus'),'Unknown — ESP offline');assert.equal(await text('alarmStatus'),'Unknown — ESP offline');
     fail=true;await page.evaluate(()=>manualRefresh());assert.equal(await text('quickSupabase'),'Disconnected');assert.equal(await text('heroStatus'),'DATABASE DISCONNECTED');assert.match(await text('chartEmptyState'),/Database unavailable/);
     fail=false;rows=[];await page.evaluate(()=>manualRefresh());assert.match(await text('chartEmptyState'),/No sensor data/);
     rows=[{...row(55,0),status:'SENSOR ERROR'}];await page.evaluate(()=>manualRefresh());
     assert.equal(await text('heroStatus'),'SENSOR ERROR');assert.equal(await text('gasPpm'),'--');
-    assert.match(await text('quickESP32'),/Reporting/);assert.match(await text('chartEmptyState'),/Sensor error/);
+    assert.match(await text('quickESP32'),/Online/);assert.match(await text('chartEmptyState'),/Sensor error/);
     assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),0);
     assert.equal(await page.evaluate(()=>getGasStatus(getSensorGas(currentSensor))),'UNKNOWN');
     console.log('PASS firmware SENSOR ERROR with zero ppm is never SAFE or a plotted measurement');
@@ -93,7 +102,7 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     await page.evaluate(()=>callAI('Explain reading','main'));assert.match(await page.locator('#chatHistory').innerText(),/Live response/);assert.equal(await page.locator('#chatHistory script').count(),0);
     aiFail=true;await page.evaluate(()=>callAI('Try again','floating'));assert.match(await page.locator('#floatingChatBody').innerText(),/Simulated AI failure/);assert.equal(await page.evaluate(()=>isAIWorking),false);
     await page.evaluate(()=>sendTelegramAlert());assert.equal(telegramCalls,0);
-    await page.evaluate(()=>{CONFIG.telegramAlertEndpoint=CONFIG.supabaseUrl+'/functions/v1/test-telegram'});await page.evaluate(()=>Promise.all([sendTelegramAlert(),sendTelegramAlert()]));assert.equal(telegramCalls,1);assert.equal(await text('quickTelegram'),'Last send succeeded');
+    await page.evaluate(()=>{CONFIG.telegramAlertEndpoint=CONFIG.supabaseUrl+'/functions/v1/test-telegram'});await page.evaluate(()=>Promise.all([sendTelegramAlert(),sendTelegramAlert()]));assert.equal(telegramCalls,1);assert.match(await page.locator('.glips-toast').innerText(),/Telegram alert sent/);
     console.log('PASS simulated AI response/error, escaped content, Telegram config and duplicate-send guard');
     await page.locator('#cameraToggleBtn').click();await page.waitForFunction(()=>document.getElementById('cameraStatusText').textContent==='Streaming');await page.locator('#cameraToggleBtn').click();assert.equal(await text('cameraStatusText'),'Offline');
     await page.route('https://chemical-plenty-reasons-experiments.trycloudflare.com/stream*',r=>r.abort());await page.locator('#cameraToggleBtn').click();await page.waitForFunction(()=>document.getElementById('cameraStatusText').textContent==='Connection failed');
@@ -116,6 +125,7 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     await page.evaluate(()=>{alertHistory=[{id:10,created_at:'2026-10-31T17:00:00Z',status:'WARNING',gas_ppm:150},{id:11,created_at:'2026-09-01T00:00:00Z',status:'DANGER',gas_ppm:400}];updateMonthFilter();document.getElementById('monthFilter').value='2026-11';filterAlertsByMonth()});
     assert.equal(await page.locator('#alertTableBody tr').count(),1);assert.match(await page.locator('#alertTableBody').innerText(),/WARNING/);
     const hardware=page.locator('[onclick="toggleHardware(this)"]').first();await hardware.click();assert.match(await hardware.getAttribute('class'),/expanded/);
+    const alarmCard=page.locator('.hardware-card').filter({has:page.locator('#alarmStatus')});await alarmCard.focus();await page.keyboard.press('Enter');assert.equal(await alarmCard.getAttribute('aria-expanded'),'true');
     await page.clock.install();await page.route('https://chemical-plenty-reasons-experiments.trycloudflare.com/stream*',()=>{});await page.locator('#cameraToggleBtn').click();await page.clock.fastForward(15001);assert.equal(await text('cameraStatusText'),'Connection timed out');
     await page.clock.resume();
     // A new dashboard navigation with no session must go back to login without reading data.
