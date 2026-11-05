@@ -35,7 +35,7 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
       if(url.pathname.endsWith('/test-telegram')) {telegramCalls++;return route.fulfill({contentType:'application/json',body:'{"ok":true}'});}
       return route.fulfill({status:401,contentType:'application/json',body:'{"message":"No real authentication in tests"}'});
     });
-    await page.route('http://10.178.40.114:81/stream*', r=>r.fulfill({contentType:'image/png',path:path.join(repo,'esp.png')}));
+    await page.route('https://chemical-plenty-reasons-experiments.trycloudflare.com/stream*', r=>r.fulfill({contentType:'image/png',path:path.join(repo,'esp.png')}));
     await page.goto(base+'/dashboard.html',{waitUntil:'networkidle'});
     await page.waitForFunction(()=>!isLoading && databaseConnected && historyLoadedFromServer);
     const text=id=>page.locator('#'+id).innerText();
@@ -86,7 +86,7 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     await page.evaluate(()=>{CONFIG.telegramAlertEndpoint=CONFIG.supabaseUrl+'/functions/v1/test-telegram'});await page.evaluate(()=>Promise.all([sendTelegramAlert(),sendTelegramAlert()]));assert.equal(telegramCalls,1);assert.equal(await text('quickTelegram'),'Last send succeeded');
     console.log('PASS simulated AI response/error, escaped content, Telegram config and duplicate-send guard');
     await page.locator('#cameraToggleBtn').click();await page.waitForFunction(()=>document.getElementById('cameraStatusText').textContent==='Streaming');await page.locator('#cameraToggleBtn').click();assert.equal(await text('cameraStatusText'),'Offline');
-    await page.route('http://10.178.40.114:81/stream*',r=>r.abort());await page.locator('#cameraToggleBtn').click();await page.waitForFunction(()=>document.getElementById('cameraStatusText').textContent==='Connection failed');
+    await page.route('https://chemical-plenty-reasons-experiments.trycloudflare.com/stream*',r=>r.abort());await page.locator('#cameraToggleBtn').click();await page.waitForFunction(()=>document.getElementById('cameraStatusText').textContent==='Connection failed');
     assert.equal(await page.locator('#captureBtn,#sendPhotoBtn').count(),0);
     await page.locator('#soundBtn').click();assert.equal(await page.locator('#soundBtn').getAttribute('aria-pressed'),'false');
     await page.evaluate(()=>openAIChat());await page.keyboard.press('Escape');assert.equal(await page.locator('#chatModal').isVisible(),false);
@@ -106,7 +106,7 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     await page.evaluate(()=>{alertHistory=[{id:10,created_at:'2026-10-31T17:00:00Z',status:'WARNING',gas_ppm:150},{id:11,created_at:'2026-09-01T00:00:00Z',status:'DANGER',gas_ppm:400}];updateMonthFilter();document.getElementById('monthFilter').value='2026-11';filterAlertsByMonth()});
     assert.equal(await page.locator('#alertTableBody tr').count(),1);assert.match(await page.locator('#alertTableBody').innerText(),/WARNING/);
     const hardware=page.locator('[onclick="toggleHardware(this)"]').first();await hardware.click();assert.match(await hardware.getAttribute('class'),/expanded/);
-    await page.clock.install();await page.route('http://10.178.40.114:81/stream*',()=>{});await page.locator('#cameraToggleBtn').click();await page.clock.fastForward(15001);assert.equal(await text('cameraStatusText'),'Connection timed out');
+    await page.clock.install();await page.route('https://chemical-plenty-reasons-experiments.trycloudflare.com/stream*',()=>{});await page.locator('#cameraToggleBtn').click();await page.clock.fastForward(15001);assert.equal(await text('cameraStatusText'),'Connection timed out');
     await page.clock.resume();
     // A new dashboard navigation with no session must go back to login without reading data.
     await page.unroute('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2*');

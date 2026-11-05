@@ -24,7 +24,7 @@ const CONFIG = {
 
   staleAfterMs: 20000,
 
-  cameraIP: "10.178.40.114",
+  cameraStreamUrl: "https://chemical-plenty-reasons-experiments.trycloudflare.com/stream",
 
   aiEndpoint:
     "https://fkfgimyelgvlsbtxhvih.supabase.co/functions/v1/glips-ai",
@@ -48,7 +48,7 @@ const THRESHOLD = {
    ===================================================== */
 
 const CAMERA = {
-  stream: `http://${CONFIG.cameraIP}:81/stream`
+  stream: CONFIG.cameraStreamUrl
 };
 
 /* =====================================================

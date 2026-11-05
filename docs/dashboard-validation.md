@@ -40,9 +40,12 @@ is independent of the dashboard's optional Send Manual Alert button.
 - Manual Telegram sending needs the actual deployed Edge Function URL in
   `CONFIG.telegramAlertEndpoint`, currently unset. The Supabase project URL alone
   does not identify that function. Do not put a Telegram bot token in frontend code.
-- Camera streaming still uses the ESP's private HTTP address and requires network
-  reachability and browser permission. Remote streaming is deferred. An HTTPS
-  dashboard may block a plain HTTP camera stream.
+- Camera streaming uses the HTTPS Cloudflare Quick Tunnel in
+  `CONFIG.cameraStreamUrl`, with public access approved by the user. Keep
+  cloudflared running on the Windows laptop, with the laptop awake and connected
+  to the ESP network. Quick Tunnel hostnames can change after restarting the
+  tunnel; update the configured URL when they do. Close other direct camera
+  stream tabs before testing the dashboard.
 
 Historical alert events are derived from changes in sensor gas status, including
 recovery to SAFE; they are not proof a Telegram message was delivered. The full
