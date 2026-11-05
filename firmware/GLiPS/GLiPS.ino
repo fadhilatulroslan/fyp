@@ -1,5 +1,5 @@
-// Credentials intentionally blank: restore only in your local Arduino sketch.
-// Only Supabase output telemetry was integrated; actuator control remains unchanged.
+// Public copy: fill the five blank configuration fields in your local Arduino sketch.
+// Never commit the filled copy.
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -19,16 +19,16 @@
 // ======================================
 
 // WIFI
-const char* WIFI_SSID = ""; // Fill locally; never post credentials publicly.
-const char* WIFI_PASS = ""; // Fill locally; never post credentials publicly.
+const char* WIFI_SSID = "";
+const char* WIFI_PASS = "";
 
 // TELEGRAM
-const char* BOT_TOKEN = ""; // Fill locally; never post credentials publicly.
-const char* CHAT_ID = ""; // Fill locally; never post credentials publicly.
+const char* BOT_TOKEN = "";
+const char* CHAT_ID = ""; /
 
 // SUPABASE
 const char* SUPABASE_URL = "https://fkfgimyelgvlsbtxhvih.supabase.co";
-const char* SUPABASE_KEY = ""; // Fill locally; never post credentials publicly.
+const char* SUPABASE_KEY = "";
 const char* SUPABASE_TABLE = "sensor_data";
 
 // TEST MODE
@@ -408,10 +408,11 @@ bool sendToSupabase() {
   http.setTimeout(10000);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("apikey", SUPABASE_KEY);
-  http.addHeader(
-      "Authorization",
-      String("Bearer ") + SUPABASE_KEY
-  );
+  // Publishable keys are sent only through apikey, not as Bearer JWTs.
+  // This also supports a legacy anon JWT if that is what you use locally.
+  if (String(SUPABASE_KEY).startsWith("eyJ")) {
+    http.addHeader("Authorization", String("Bearer ") + SUPABASE_KEY);
+  }
   http.addHeader("Prefer", "return=minimal");
 
   String body = buildSupabaseJson();

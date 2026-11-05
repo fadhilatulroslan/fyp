@@ -54,3 +54,19 @@ existing board/library settings, compile, and upload. Apply the SQL column first
 This full sketch has not been compiled for an ESP board or flashed here. Its
 actuator OFF logic and existing TLS/camera limitations are preserved, not fixed
 by the telemetry integration. GPIO reports describe output commands only.
+
+## Supabase API key header correction
+
+The complete GLiPS.ino now sends a publishable key only in the `apikey` header.
+It adds `Authorization: Bearer ...` only for legacy JWT-style keys beginning with
+`eyJ`. Copy the public sketch using GitHub Raw, then restore the five blank
+configuration values only in Arduino IDE. Verify SUPABASE_URL and SUPABASE_KEY
+come from the same project and use a publishable key or legacy anon key, never
+a service-role or secret key in firmware intended for distribution.
+
+This corrects the request headers; it does not prove that the chosen key is valid
+or that table insert permissions are configured. If the response remains
+"Invalid API key", copy a current key from that project's API settings. A later
+RLS/permission error is a separate issue and does not mean the API key is invalid.
+Do not disable RLS to resolve an unexplained error. Full-device compilation and
+live Supabase insertion still need verification on the user's laptop/ESP.
