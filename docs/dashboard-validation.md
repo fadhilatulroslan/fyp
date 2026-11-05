@@ -60,16 +60,16 @@ endpoint is independent. The supplied firmware is not committed because it conta
 credentials.
 
 The firmware currently enables DEMO_MODE, alternating 120/1500 ppm every 15 seconds.
-Its danger entry/recovery thresholds are 1000/800 ppm, different from the frontend's
-100/300 ppm classification; alignment needs an explicit operating-mode decision.
+Its danger entry/recovery thresholds are 1000/800 ppm. The current dashboard now
+matches those thresholds and honors explicit ESP status in the hysteresis band.
 MQ_R0 is NAN, so real MQ-6 measurements cannot work until calibrated. Invalid
 measurements are currently uploaded as zero with SENSOR ERROR; the frontend now
 honors this status, excludes the reading from the graph/history, and shows unknown
 instead of SAFE. The upload does not include hardware feedback fields, so the
 frontend cannot verify valve/fan/LED/buzzer states. Firmware still captures Telegram
-photos even though dashboard capture controls were removed. The firmware's use of
-setInsecure() and photo-buffer access after esp_camera_fb_return() also require a
-separate firmware correction and device validation before claiming readiness.
+photos even though dashboard capture controls were removed. The original photo-buffer access after esp_camera_fb_return() has been corrected
+in the current full-system integration. Existing setInsecure() calls and physical
+device validation remain unresolved.
 
 ## Compact English status layout
 
@@ -93,3 +93,10 @@ and stops the current stream. Invalid protocols and embedded credentials are
 rejected. Reopen Start Live Monitoring after saving. A saved value takes precedence
 over CONFIG.cameraStreamUrl on subsequent visits; update the field whenever
 cloudflared creates a new hostname. This setting does not fix ESP/network outages.
+
+## Full-system v3 integration
+
+The latest full-system sketch supplied by the user restores original fan, buzzer,
+valve relay-test, LEDs, LCD and DFPlayer control. That source is the base of the
+current complete sketch, with its output functions preserved. See firmware/README.md
+for the current build, host checks, and remaining physical/board validation limits.

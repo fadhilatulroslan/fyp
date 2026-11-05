@@ -1,40 +1,51 @@
-// For the latest LCD NO SCROLL + DEMO GAS + REAL DHT22 sketch.
-// Replace only buildSupabaseJson(); GPIO/relay control remains unchanged.
-// Requires hardware_outputs JSONB in sensor_data; created_at uses the existing database default.
+// For the full-system sketch with DFPlayer and FAN_ON.
+// Requires hardware_outputs JSONB in sensor_data.
 
 String buildSupabaseJson() {
   String statusText =
-      !sensorValid ? "SENSOR ERROR" :
-      danger ? "DANGER" : "SAFE";
+    !sensorValid ? "SENSOR ERROR" :
+    (danger ? "DANGER" : "SAFE");
 
   String json = "{";
 
   json += "\"status\":\"" + statusText + "\",";
   json += "\"gas_ppm\":" +
-          String(isfinite(gasPPM) ? gasPPM : 0, 1) + ",";
+    String(sensorValid && isfinite(gasPPM)
+      ? (int)gasPPM : 0) + ",";
 
   json += "\"temperature\":" +
-          String(isfinite(temperature) ? temperature : 0, 1) + ",";
+    String(isfinite(temperature) ? temperature : 0, 1)
+    + ",";
 
   json += "\"humidity\":" +
-          String(isfinite(humidity) ? humidity : 0, 1);
+    String(isfinite(humidity) ? humidity : 0, 1)
+    + ",";
 
-
-  // Report GPIO commands only, never inferred physical actuator positions.
-  json += ",\"hardware_outputs\":{";
+  // GPIO commands reported by this firmware; not physical feedback.
+  json += "\"hardware_outputs\":{";
   json += "\"kind\":\"output_commands\",";
   json += "\"gas_valve\":\"" + String(digitalRead(RELAY_VALVE) == HIGH ? "RELAY HIGH" : "RELAY LOW") + "\",";
-  json += "\"exhaust_fan\":\"" + String(digitalRead(RELAY_FAN) == FAN_OFF ? "OFF" : "ON") + "\",";
+  json += "\"exhaust_fan\":\"" + String(digitalRead(RELAY_FAN) == FAN_ON ? "ON" : "OFF") + "\",";
   json += "\"buzzer\":\"" + String(digitalRead(BUZZER_PIN) == BUZZER_ON ? "ON" : "OFF") + "\",";
   json += "\"red_led\":\"" + String(digitalRead(LED_RED) == HIGH ? "ON" : "OFF") + "\",";
   json += "\"green_led\":\"" + String(digitalRead(LED_GREEN) == HIGH ? "ON" : "OFF") + "\",";
-  // This latest sketch has no DFPlayer or voice output implementation.
-  json += "\"voice_alert\":\"NOT CONFIGURED\",";
+  json += "\"voice_alert\":\"" + String(!dfReady ? "UNAVAILABLE" : sensorValid && danger ? "PLAY REQUESTED" : "STOP REQUESTED") + "\",";
   json += "\"wifi_connected\":" + String(WiFi.status() == WL_CONNECTED ? "true" : "false");
-  json += "}";
+  json += "},";
+
+  // Malaysia timezone UTC+8
+  time_t now = time(nullptr);
+  struct tm timeinfo;
+  localtime_r(&now, &timeinfo);
+
+  char timeBuf[30];
+
+  strftime(timeBuf, sizeof(timeBuf),
+           "%Y-%m-%dT%H:%M:%S+08:00", &timeinfo);
+
+  json += "\"created_at\":\"" +
+    String(timeBuf) + "\"";
 
   json += "}";
-
   return json;
 }
-

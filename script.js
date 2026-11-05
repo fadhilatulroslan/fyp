@@ -39,8 +39,8 @@ const CONFIG = {
    ===================================================== */
 
 const THRESHOLD = {
-  SAFE_MAX: 100,
-  DANGER_MIN: 300
+  SAFE_MAX: 800,
+  DANGER_MIN: 1000
 };
 
 /* =====================================================
@@ -236,6 +236,14 @@ function getGasStatus(ppm) {
   return "SAFE";
 }
 
+function getReadingStatus(record) {
+  const fallback = getGasStatus(getSensorGas(record));
+  if (fallback === "UNKNOWN") return fallback;
+  const reported = String(record?.status ?? "").trim().toUpperCase();
+  // ESP retains its previous state between the 800/1000 ppm thresholds.
+  return ["SAFE", "WARNING", "DANGER"].includes(reported) ? reported : fallback;
+}
+
 function getStatusColor(status) {
   if (status === "SAFE") {
     return "#16a34a";
@@ -414,7 +422,7 @@ function showOffline(message) {
   const hasRecord = Boolean(currentSensor);
 
   const recordedStatus = hasRecord
-    ? getGasStatus(getSensorGas(currentSensor))
+    ? getReadingStatus(currentSensor)
     : "UNKNOWN";
 
   setText(
@@ -692,7 +700,7 @@ async function loadData() {
     allSensors = data;
     currentSensor = data[0];
 
-    const recordedStatus = getGasStatus(getSensorGas(currentSensor));
+    const recordedStatus = getReadingStatus(currentSensor);
 
     // Check if sensor reading is recent.
     lastReadingFresh =
@@ -813,7 +821,7 @@ function updateHeroAlert(record, status) {
     SAFE: {
       title: "SYSTEM SAFE",
       description:
-        "Live LPG reading is within the configured safe range.",
+        "ESP32 reports SAFE according to its configured gas thresholds.",
       icon: "ti ti-shield-check"
     },
 
@@ -1149,7 +1157,7 @@ function initializeChart() {
           },
 
           {
-            label: "Warning threshold",
+            label: "Danger reset (800 ppm)",
             data: [],
             borderColor: "#d97706",
             borderDash: [5, 5],
@@ -1158,7 +1166,7 @@ function initializeChart() {
           },
 
           {
-            label: "Danger threshold",
+            label: "Danger trigger (1000 ppm)",
             data: [],
             borderColor: "#dc2626",
             borderDash: [5, 5],
@@ -1192,7 +1200,7 @@ function initializeChart() {
 
           y: {
             beginAtZero: true,
-            suggestedMax: 350,
+            suggestedMax: 1200,
 
             title: {
               display: true,
@@ -1239,7 +1247,7 @@ function updateChart(records = allSensors) {
 
   sensorChart.data.datasets[0].data =
     selected.map(
-      row => getGasStatus(getSensorGas(row)) === "UNKNOWN" ? null : getSensorGas(row)
+      row => getReadingStatus(row) === "UNKNOWN" ? null : getSensorGas(row)
     );
 
   sensorChart.data.datasets[1].data =
@@ -1292,7 +1300,7 @@ function loadAlertHistoryFromData(records) {
   let previousStatus = null;
 
   ordered.forEach(record => {
-    const status = getGasStatus(getSensorGas(record));
+    const status = getReadingStatus(record);
 
     if (status === "UNKNOWN") return;
 
@@ -2757,7 +2765,7 @@ async function callAI(
   try {
     const live = lastReadingFresh && !isReadingStale(currentSensor);
     const recordedStatus = currentSensor
-      ? getGasStatus(getSensorGas(currentSensor))
+      ? getReadingStatus(currentSensor)
       : "UNKNOWN";
 
     // Sensor data sent as context to AI.

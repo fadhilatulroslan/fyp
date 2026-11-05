@@ -421,7 +421,7 @@
                   <span class="range-dot safe"></span>
 
                   <span>
-                    SAFE: 0–100 ppm
+                    SAFE reset: 800 ppm and below
                   </span>
 
                 </div>
@@ -432,7 +432,7 @@
                   <span class="range-dot warning"></span>
 
                   <span>
-                    WARNING: 101–299 ppm
+                    800–1000 ppm: ESP32 retains its previous state
                   </span>
 
                 </div>
@@ -443,7 +443,7 @@
                   <span class="range-dot danger"></span>
 
                   <span>
-                    DANGER: 300 ppm and above
+                    DANGER trigger: 1000 ppm and above
                   </span>
 
                 </div>
@@ -492,8 +492,8 @@
             <div class="gas-bar-labels">
 
               <span>0</span>
-              <span>100</span>
-              <span>300</span>
+              <span>800</span>
+              <span>1000</span>
               <span>500+</span>
 
             </div>
@@ -697,7 +697,7 @@
           <span class="legend-item safe">
 
             <i class="ti ti-point-filled"></i>
-            SAFE (0–100)
+            SAFE RESET (≤800)
 
           </span>
 
@@ -705,7 +705,7 @@
           <span class="legend-item warning">
 
             <i class="ti ti-point-filled"></i>
-            WARNING (101–299)
+            TRANSITION BAND (800–1000)
 
           </span>
 
@@ -713,7 +713,7 @@
           <span class="legend-item danger">
 
             <i class="ti ti-point-filled"></i>
-            DANGER (300+)
+            DANGER TRIGGER (1000+)
 
           </span>
 

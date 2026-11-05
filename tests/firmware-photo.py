@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess,tempfile
 repo=Path(__file__).resolve().parents[1]
 s=(repo/'firmware/GLiPS/GLiPS.ino').read_text()
-a=s.index('bool sendTelegramPhoto(');b=s.index('\n// ===',a)
+a=s.index('bool sendTelegramPhoto(');b=s.index('\nvoid processTelegramAlert()',a)
 fn=s[a:b]
 shim=r'''
 #include <string>
