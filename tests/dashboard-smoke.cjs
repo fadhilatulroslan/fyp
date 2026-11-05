@@ -52,6 +52,16 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     // Every inline button/change handler must have an existing global function.
     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('[onclick],[onchange]')].flatMap(el=>[el.getAttribute('onclick'),el.getAttribute('onchange')]).filter(Boolean).flatMap(code=>[...code.matchAll(/\b([A-Za-z_$][\w$]*)\(/g)].map(m=>m[1])).filter(name=>!['stopPropagation','if'].includes(name)&&typeof window[name]!=='function')),[]);
     console.log('PASS live data, connectivity, hardware, chart defaults, inline handlers');
+    rows=[{...row(100,45),gas_valve:undefined,exhaust_fan:undefined,wifi_connected:undefined,hardware_outputs:{kind:'output_commands',gas_valve:'RELAY HIGH',exhaust_fan:'ON',buzzer:'ON',red_led:'ON',green_led:'OFF',voice_alert:'PLAY REQUESTED',wifi_connected:true}}];
+    await page.evaluate(()=>manualRefresh());
+    assert.equal(await text('gasValveStatus'),'RELAY HIGH');assert.equal(await text('gasValveDetail'),'RELAY HIGH');
+    assert.equal(await text('exhaustFanStatus'),'ON');assert.equal(await text('voiceAlertStatus'),'PLAY REQUESTED');
+    assert.equal(await text('quickWiFi'),'ON');assert.match(await page.locator('#dotGasValve').getAttribute('class'),/active/);
+    rows=[row(1,45)];await page.evaluate(()=>manualRefresh());
+    assert.equal(await text('voiceAlertStatus'),'UNKNOWN');assert.equal(await text('voiceAlertDetail'),'UNKNOWN');
+    assert.equal(await page.locator('#dotVoiceAlert').evaluate(el=>el.classList.contains('active')),false);
+    console.log('PASS ESP nested output commands, expanded details, reporting indicators, missing fields');
+
     for (const [id,gas,status] of [[2,150,'WARNING'],[3,400,'DANGER DETECTED'],[4,40,'SYSTEM SAFE']]) {
       rows=[row(id,gas),...rows];await page.evaluate(()=>manualRefresh());assert.equal(await text('heroStatus'),status);
     }

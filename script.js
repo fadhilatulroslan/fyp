@@ -268,6 +268,10 @@ function getField(record, names) {
     }
   }
 
+  for (const name of names) {
+    const value = record.hardware_outputs?.[name];
+    if (value !== undefined && value !== null) return value;
+  }
   return null;
 }
 
@@ -1037,7 +1041,7 @@ const HARDWARE_DEVICES = [
 function updateHardware(record) {
   HARDWARE_DEVICES.forEach(device => {
     const value =
-      lastReadingFresh && record
+      lastReadingFresh && record && !isReadingStale(record)
         ? normalizeState(
             getField(record, device.fields)
           )
@@ -1049,6 +1053,17 @@ function updateHardware(record) {
       if (!element) return;
 
       element.textContent = value;
+      const detail = $(id.replace(/Status$/, "Detail"));
+      if (detail) detail.textContent = value;
+      const dot = $("dot" + id.replace(/Status$/, "").replace(/^./, letter => letter.toUpperCase()));
+      if (dot) {
+        const reported = lastReadingFresh && !isReadingStale(record) && value !== "UNKNOWN";
+        dot.classList.toggle("active", reported);
+        dot.title = reported ? "Output reported by ESP32; physical feedback not available" : "Output state not reported";
+      }
+      element.title = value === "UNKNOWN"
+        ? "No current output state received from ESP32"
+        : "Reported output command; physical operation is not verified";
 
       element.classList.remove(
         "on",
@@ -1062,7 +1077,7 @@ function updateHardware(record) {
         element.classList.add("offline");
 
       } else if (
-        ["ON", "ACTIVE", "TRUE", "1"]
+        ["ON", "ACTIVE", "TRUE", "1", "PLAY REQUESTED", "RELAY HIGH"]
           .includes(value)
       ) {
         element.classList.add("on");
