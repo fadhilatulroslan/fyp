@@ -1,6 +1,7 @@
 # Send output states from the existing ESP firmware
 
-The supplied firmware controls GPIO outputs but only uploads LPG, temperature,
+The latest supplied firmware sets relay and buzzer outputs OFF in both modes,
+but only uploads LPG, temperature,
 humidity, status, and timestamp. The dashboard cannot reconstruct the output
 states from that data, so UNKNOWN is expected.
 
@@ -20,8 +21,8 @@ states from that data, so UNKNOWN is expected.
 
 The patch reads GPIO output levels; it does not change output control, pins,
 thresholds, calibration, credentials, or operating mode. Valve RELAY HIGH/LOW
-reports the GPIO command, not a verified OPEN/CLOSED valve position. Voice
-PLAY REQUESTED/STOP REQUESTED reports the firmware request, not audio feedback.
+reports the GPIO command, not a verified OPEN/CLOSED valve position. The latest sketch has no DFPlayer/voice implementation, so voice reports NOT
+CONFIGURED. This replacement does not refer to the removed FAN_ON or dfReady.
 A physical feedback sensor would be needed to prove actuator operation.
 
 Check both firmware modes in a controlled bench test: output cards must match GPIO
@@ -33,3 +34,11 @@ Threshold mismatch remains a separate issue: the supplied ESP has 1000 ppm dange
 entry / 800 ppm recovery, while the dashboard currently uses 100/300 ppm. Do not
 use dashboard classification to infer actuator commands. Firmware still has demo
 mode enabled and MQ_R0 unset; no real-sensor readiness is claimed here.
+
+The latest sketch uses a separate sensor/LCD task and omits created_at from the
+POST body. The replacement preserves that behavior, relying on the existing
+sensor_data.created_at database default. Actuators remain disabled; changing
+telemetry does not activate them. The latest sendTelegramPhoto still accesses
+fb->len after returning the frame buffer, and photos and streaming share one
+frame buffer. Those are separate firmware issues requiring a device-validated
+camera update. No credentials from the uploaded sketches are committed.

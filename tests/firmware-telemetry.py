@@ -23,11 +23,11 @@ struct String : std::string {
   static std::string format(float value,int digits){std::ostringstream s;s<<std::fixed<<std::setprecision(digits)<<value;return s.str();}
 };
 const int HIGH=1, LOW=0, RELAY_VALVE=0,RELAY_FAN=1,BUZZER_PIN=2,LED_RED=3,LED_GREEN=4;
-const int FAN_ON=HIGH,BUZZER_ON=LOW,WL_CONNECTED=3;
+const int FAN_OFF=LOW,BUZZER_ON=LOW,WL_CONNECTED=3;
 int outputs[5]={LOW,LOW,HIGH,LOW,HIGH};
 int digitalRead(int pin){return outputs[pin];}
 struct Wifi{int status(){return WL_CONNECTED;}} WiFi;
-bool sensorValid=true,danger=false,dfReady=true;
+bool sensorValid=true,danger=false;
 float gasPPM=120,temperature=28.5,humidity=65;
 '''
 source += (repo / 'firmware/buildSupabaseJson-replacement.txt').read_text()
@@ -36,7 +36,7 @@ int main(){
 std::cout<<buildSupabaseJson()<<"\n";
 danger=true;gasPPM=1500;outputs[0]=HIGH;outputs[1]=HIGH;outputs[2]=LOW;outputs[3]=HIGH;outputs[4]=LOW;
 std::cout<<buildSupabaseJson()<<"\n";
-sensorValid=false;dfReady=false;gasPPM=NAN;
+sensorValid=false;gasPPM=NAN;
 std::cout<<buildSupabaseJson()<<"\n";
 }
 '''
@@ -50,13 +50,13 @@ safe, danger, invalid = rows
 assert safe['hardware_outputs'] == {
     'kind':'output_commands','gas_valve':'RELAY LOW','exhaust_fan':'OFF',
     'buzzer':'OFF','red_led':'OFF','green_led':'ON',
-    'voice_alert':'STOP REQUESTED','wifi_connected':True,
+    'voice_alert':'NOT CONFIGURED','wifi_connected':True,
 }
 assert danger['hardware_outputs']['gas_valve'] == 'RELAY HIGH'
 assert danger['hardware_outputs']['exhaust_fan'] == 'ON'
 assert danger['hardware_outputs']['buzzer'] == 'ON'  # active-low buzzer
-assert danger['hardware_outputs']['voice_alert'] == 'PLAY REQUESTED'
+assert danger['hardware_outputs']['voice_alert'] == 'NOT CONFIGURED'
 assert invalid['status'] == 'SENSOR ERROR'
-assert invalid['hardware_outputs']['voice_alert'] == 'UNAVAILABLE'
+assert invalid['hardware_outputs']['voice_alert'] == 'NOT CONFIGURED'
 assert safe['gas_ppm'] == 120 and danger['gas_ppm'] == 1500
 print('PASS compiled replacement produces valid JSON and GPIO command states; full ESP sketch untested')

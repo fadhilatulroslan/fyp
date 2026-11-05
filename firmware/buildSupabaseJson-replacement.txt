@@ -1,40 +1,40 @@
-// Replace only the existing buildSupabaseJson() function with this function.
-// No changes to pins, thresholds, relay logic, credentials, or operating mode.
+// For the latest LCD NO SCROLL + DEMO GAS + REAL DHT22 sketch.
+// Replace only buildSupabaseJson(); GPIO/relay control remains unchanged.
+// Requires hardware_outputs JSONB in sensor_data; created_at uses the existing database default.
 
 String buildSupabaseJson() {
-  String statusText = !sensorValid ? "SENSOR ERROR" : (danger ? "DANGER" : "SAFE");
-  
-  String json = "{";
-  json += "\"status\":\"" + statusText + "\",";
-  json += "\"gas_ppm\":" + String(sensorValid && isfinite(gasPPM) ? (int)gasPPM : 0) + ",";
-  json += "\"temperature\":" + String(isfinite(temperature) ? temperature : 0, 1) + ",";
-  json += "\"humidity\":" + String(isfinite(humidity) ? humidity : 0, 1) + ",";
+  String statusText =
+      !sensorValid ? "SENSOR ERROR" :
+      danger ? "DANGER" : "SAFE";
 
-  // GPIO output commands only; no physical valve/fan feedback is available.
-  // Supabase requires a nullable hardware_outputs JSONB column.
-  json += "\"hardware_outputs\":{";
+  String json = "{";
+
+  json += "\"status\":\"" + statusText + "\",";
+  json += "\"gas_ppm\":" +
+          String(isfinite(gasPPM) ? gasPPM : 0, 1) + ",";
+
+  json += "\"temperature\":" +
+          String(isfinite(temperature) ? temperature : 0, 1) + ",";
+
+  json += "\"humidity\":" +
+          String(isfinite(humidity) ? humidity : 0, 1);
+
+
+  // Report GPIO commands only, never inferred physical actuator positions.
+  json += ",\"hardware_outputs\":{";
   json += "\"kind\":\"output_commands\",";
   json += "\"gas_valve\":\"" + String(digitalRead(RELAY_VALVE) == HIGH ? "RELAY HIGH" : "RELAY LOW") + "\",";
-  json += "\"exhaust_fan\":\"" + String(digitalRead(RELAY_FAN) == FAN_ON ? "ON" : "OFF") + "\",";
+  json += "\"exhaust_fan\":\"" + String(digitalRead(RELAY_FAN) == FAN_OFF ? "OFF" : "ON") + "\",";
   json += "\"buzzer\":\"" + String(digitalRead(BUZZER_PIN) == BUZZER_ON ? "ON" : "OFF") + "\",";
   json += "\"red_led\":\"" + String(digitalRead(LED_RED) == HIGH ? "ON" : "OFF") + "\",";
   json += "\"green_led\":\"" + String(digitalRead(LED_GREEN) == HIGH ? "ON" : "OFF") + "\",";
-  json += "\"voice_alert\":\"" + String(!dfReady ? "UNAVAILABLE" : sensorValid && danger ? "PLAY REQUESTED" : "STOP REQUESTED") + "\",";
+  // This latest sketch has no DFPlayer or voice output implementation.
+  json += "\"voice_alert\":\"NOT CONFIGURED\",";
   json += "\"wifi_connected\":" + String(WiFi.status() == WL_CONNECTED ? "true" : "false");
-  json += "},";
-
-  // === TIMESTAMP FIX: Hantar waktu Malaysia (UTC+8) terus ke Supabase ===
-  time_t now = time(nullptr);
-  struct tm timeinfo;
-  localtime_r(&now, &timeinfo);
-  
-  // Format ISO 8601: YYYY-MM-DDTHH:MM:SS+08:00
-  char timeBuf[30];
-  strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%dT%H:%M:%S+08:00", &timeinfo);
-  
-  json += "\"created_at\":\"" + String(timeBuf) + "\"";
-  
   json += "}";
+
+  json += "}";
+
   return json;
 }
 
