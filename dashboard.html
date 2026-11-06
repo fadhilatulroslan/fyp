@@ -8,7 +8,7 @@
   <title>GLiPS | LPG Gas Leak Detection System</title>
   <meta name="description" content="GLiPS real-time IoT LPG gas leak detection and safety monitoring dashboard.">
 
-  <link rel="stylesheet" href="style.css?v=meter-spacing-20261106">
+  <link rel="stylesheet" href="style.css?v=safe-warning-danger-20261106">
 
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
@@ -87,7 +87,7 @@
               <canvas id="gaugeCanvas" width="260" height="170" role="img" aria-label="Gas meter: no live reading"></canvas>
               <div class="meter-reading"><strong id="heroGas">--</strong><abbr title="Parts per million: a measure of gas concentration">ppm</abbr></div>
               <p id="heroReadingNote">No live reading</p>
-              <div class="meter-legend" aria-label="Meter ranges"><span class="normal">Normal</span><span class="warning">Warning</span><span class="danger">Danger</span></div>
+              <div class="meter-legend" aria-label="Meter ranges"><span class="normal">Safe</span><span class="warning">Warning</span><span class="danger">Danger</span></div>
               <p id="meterHint" class="meter-hint" hidden></p>
             </div>
             <div class="meter-environment">
@@ -169,7 +169,7 @@
           <span class="legend-item safe">
 
             <i class="ti ti-point-filled"></i>
-            NORMAL ≤100 ppm
+            SAFE ≤100 ppm
 
           </span>
 
@@ -177,13 +177,14 @@
 
 
 
+          <span class="legend-item warning"><i class="ti ti-point-filled"></i> WARNING &gt;100–&lt;300 ppm</span>
           <span class="legend-item danger">
 
             <i class="ti ti-point-filled"></i>
             DANGER ≥300 ppm
 
           </span>
-          <span class="legend-item"><i class="ti ti-point-filled" style="color:#7c3aed"></i> RESET ≤250 ppm</span>
+
 
         </div>
 
@@ -366,7 +367,7 @@
 
 
 
-      <p class="section-description">Changes between Normal, Warning and Danger.</p>
+      <p class="section-description">Changes between Safe, Warning and Danger.</p>
       <div class="history-toolbar">
 
         <details class="history-more-filters"><summary>More filters</summary><div class="history-filter">
@@ -391,7 +392,7 @@
         <div class="history-date-filters">
           <label>From <input type="date" id="historyFrom" onchange="filterAlertsByMonth()"></label>
           <label>To <input type="date" id="historyTo" onchange="filterAlertsByMonth()"></label>
-          <label>Status <select id="historyStatus" onchange="filterAlertsByMonth()"><option value="all">All statuses</option><option value="SAFE">Normal</option><option value="WARNING">Warning</option><option value="DANGER">Danger</option></select></label>
+          <label>Status <select id="historyStatus" onchange="filterAlertsByMonth()"><option value="all">All statuses</option><option value="SAFE">Safe</option><option value="WARNING">Warning</option><option value="DANGER">Danger</option></select></label>
           <button type="button" onclick="resetHistoryFilters()">Clear filters</button>
         </div>
         <div class="history-actions">
@@ -603,7 +604,7 @@
     <details class="technical-section reading-guide"><summary>About the readings and alarm levels</summary>
       <div class="reading-guide-content">
         <p><strong>ppm</strong> means parts per million, a measure of gas concentration. Temperature and humidity are shown alongside the gas reading.</p>
-        <dl><div><dt>Normal range</dt><dd>100 ppm or below</dd></div><div><dt>Danger warning</dt><dd>Starts at 300 ppm or above</dd></div><div><dt>Danger clears</dt><dd>At 250 ppm or below; the valve still needs a local manual reset</dd></div></dl>
+        <dl><div><dt>Safe range</dt><dd>100 ppm or below</dd></div><div><dt>Danger warning</dt><dd>Starts at 300 ppm or above</dd></div><div><dt>Danger clears</dt><dd>At 250 ppm or below; the valve still needs a local manual reset</dd></div></dl>
       </div></details>
 
     <button type="button" id="manualAlertButton" class="manual-alert-button" onclick="sendTelegramAlert()" hidden>Send a manual alert</button>
@@ -699,7 +700,7 @@
        FLOATING AI CHAT WINDOW
   ========================================== -->
 
-  <script src="script.js?v=gas-meter-20261106"></script>
+  <script src="script.js?v=safe-warning-danger-20261106"></script>
 
 </body>
 </html>

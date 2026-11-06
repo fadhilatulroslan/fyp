@@ -122,7 +122,7 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await page.evaluate(()=>getGasStatus(getSensorGas(currentSensor))),'UNKNOWN');
     console.log('PASS firmware SENSOR ERROR with zero ppm is never SAFE or a plotted measurement');
     rows=[row(500,0)];await page.evaluate(()=>manualRefresh());assert.equal(await text('heroGas'),'0');assert.equal(await page.locator('#gaugeCanvas').getAttribute('data-live'),'true');
-    rows=[{...row(501,275),status:'DANGER'}];await page.evaluate(()=>manualRefresh());assert.equal(await page.locator('#meterHint').isVisible(),true);assert.match(await text('meterHint'),/250/);assert.equal(await text('heroStatus'),'Gas leak warning');
+    rows=[{...row(501,275),status:'DANGER'}];await page.evaluate(()=>manualRefresh());assert.equal(await page.locator('#meterHint').isVisible(),true);assert.match(await text('meterHint'),/Danger warning remains active/);assert.equal(await text('heroStatus'),'Gas leak warning');
     rows=[row(6,40)];await page.evaluate(()=>manualRefresh());assert.equal(await text('heroStatus'),'Gas level is normal');
     // Staleness timer must work without waiting for a successful database response.
     await page.clock.install();await page.evaluate(()=>{clearInterval(refreshTimer);clearInterval(countdownTimer);currentSensor.created_at=new Date(Date.now()-19000).toISOString();startRefreshTimers();clearInterval(refreshTimer)});

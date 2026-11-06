@@ -165,3 +165,7 @@ invalid data show a grey arc without a needle, not a zero-gas indication. A genu
 live zero remains distinguishable. A 250..300 ppm held-DANGER reading has an
 explicit explanatory hint. Browser checks cover those states; canvas/device
 operation remains separate from real sensor calibration.
+
+The visible range labels are Safe, Warning and Danger. The reset reference line
+is removed from the chart; the internal 250 ppm hysteresis and manual valve-reset
+requirements remain unchanged and available in details when needed.

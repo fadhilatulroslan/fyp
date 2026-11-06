@@ -866,7 +866,7 @@ function updateHeroAlert(record, status) {
   }
 
   const latched = getField(record, ["valve_latched"]) === true;
-  setText("heroStateLabel", status === "SAFE" ? "Normal" : status === "WARNING" ? "Warning" : "Danger");
+  setText("heroStateLabel", status === "SAFE" ? "Safe" : status === "WARNING" ? "Warning" : "Danger");
   setText("heroReadingNote", "Current sensor reading");
   setText("heroStatus", status === "SAFE" && latched ? "Gas level has dropped" : content.title);
   setText("heroMessage", status === "SAFE" && latched
@@ -1264,15 +1264,6 @@ function initializeChart() {
           },
 
           {
-            label: "Danger reset (250 ppm)",
-            data: [],
-            borderColor: "#7c3aed",
-            borderDash: [3, 5],
-            borderWidth: 1.5,
-            pointRadius: 0
-          },
-
-          {
             label: "Danger trigger (300 ppm)",
             data: [],
             borderColor: "#dc2626",
@@ -1369,8 +1360,7 @@ function updateChart(records = allSensors) {
       () => THRESHOLD.SAFE_MAX
     );
 
-  sensorChart.data.datasets[2].data = selected.map(() => THRESHOLD.DANGER_CLEAR);
-  sensorChart.data.datasets[3].data = selected.map(() => THRESHOLD.DANGER_MIN);
+  sensorChart.data.datasets[2].data = selected.map(() => THRESHOLD.DANGER_MIN);
 
   sensorChart.update("none");
 }
@@ -3252,7 +3242,7 @@ function drawGasGauge(ppm, isLive = false) {
   const held = live && value < THRESHOLD.DANGER_MIN && getReadingStatus(currentSensor) === "DANGER";
   if (hint) {
     hint.hidden = !held && !(live && value > scaleMax);
-    hint.textContent = held ? "Danger warning stays active until 250 ppm or below."
+    hint.textContent = held ? "Danger warning remains active."
       : live && value > scaleMax ? "Above meter scale; the full reading is shown above." : "";
   }
 }
