@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Prepare complete ESP sketch | GLiPS</title>
+  <link rel="stylesheet" href="prepare-sketch.css">
+  <script src="prepare-sketch.js" defer></script>
+</head>
+<body>
+<main>
+  <a class="brand" href="../dashboard.html">GLiPS</a>
+  <h1>Your complete ESP sketch</h1>
+  <p class="intro">Choose the sketch that already works. Keep your existing connection settings and copy one complete updated sketch into Arduino IDE.</p>
+  <aside>Your file is read in this browser only. Wi-Fi passwords and tokens are not uploaded or saved by this page.</aside>
+  <section>
+    <h2>1. Choose your working code</h2>
+    <label for="workingSketch">Local Arduino sketch (.ino) or pasted text file (.txt)</label>
+    <input id="workingSketch" type="file" accept=".ino,.txt,text/plain">
+    <p class="hint">Includes the 300/250 ppm alarm settings, manual valve reset, device reports, camera fixes and the IKM Lumut location.</p>
+    <button id="prepareButton" type="button">Prepare complete code</button>
+    <p id="prepareStatus" role="status" aria-live="polite">Choose your working file to begin.</p>
+  </section>
+  <section id="resultSection" hidden>
+    <h2>2. Copy and upload</h2>
+    <p>In your existing Arduino sketch, select all the old code and paste this complete version. Compile with your existing ESP32-S3 board settings, then upload.</p>
+    <div class="actions"><button id="copyButton" type="button" disabled>Copy full code</button><button id="downloadButton" type="button" class="secondary" disabled>Download GLiPS.ino</button></div>
+    <label for="completeSketch">Complete code — contains your private connection settings</label>
+    <textarea id="completeSketch" readonly spellcheck="false" autocomplete="off" rows="16"></textarea>
+    <p class="hint">Keep this filled copy private. A complete sketch still needs a successful board compile and device test.</p>
+  </section>
+</main>
+</body>
+</html>

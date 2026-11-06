@@ -113,3 +113,25 @@ recipient before use. Keep private site details out of a public filled sketch.
 Run `python3 tests/firmware-location.py` for the host-level text/encoding tests.
 The full board compile and actual Telegram delivery still need device validation.
 The startup marker is now `v4.1 + site location` within the full build string.
+
+## Copy a complete sketch without retyping connection settings
+
+Open `firmware/prepare-sketch.html` on the published project site. Choose the
+working local .ino/.txt, select Prepare complete code, then Copy full code. The
+browser reads the working file locally and fetches only the public template from
+the same site. No uploaded code or credential values are sent to a server or
+stored by this page. Download GLiPS.ino is an optional fallback.
+
+The helper preserves the five connection settings and optional existing Supabase
+URL/table and configured public camera URL. It checks library/function presence,
+GPIO/polarity/mode definitions and MQ calibration before merging. Mismatches stop
+the process for manual review. Updated gas thresholds, valve latch and IKM Lumut
+location come from the current public template; it is not a byte-for-byte copy of
+the old control logic. Copy into the existing Arduino sketch, compile using the
+working board/library settings, and upload. Keep the filled output private.
+
+`node tests/prepare-sketch.cjs` checks synthetic secret preservation, mismatched
+pins/mode/calibration/functions, missing settings, local-only browser file handling,
+copy/download, rejection clearing, and mobile overflow. The actual uploaded working
+sketch was also checked for merge compatibility without printing its credentials.
+Full ESP compilation and real device operation remain unverified in the cloud.
