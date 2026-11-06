@@ -2538,3 +2538,15 @@ canvas {
 .camera-settings input { display: block; width: 100%; box-sizing: border-box; min-width: 0; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; font: inherit; }
 .camera-settings button { margin-top: 10px; }
 .camera-settings p { line-height: 1.6; margin-top: 10px; }
+
+/* Plain dashboard masthead: typography, one status, and essential actions. */
+.header { padding: 8px 0 18px; background: transparent; border: 0; border-bottom: 1px solid var(--border-strong); border-radius: 0; box-shadow: none; }
+.header h1 { font-family: Arial, Helvetica, sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -.6px; line-height: 1.15; }
+.header .header-sub { margin-top: 5px; font-size: 12px; font-weight: 400; letter-spacing: 0; }
+.header .header-actions { gap: 10px; }
+.header .connection-status-pill { padding: 0; margin-right: 10px; background: transparent; border: 0; border-radius: 0; font-size: 11px; font-weight: 600; letter-spacing: .02em; }
+.header .status-pulse-dot { width: 6px; height: 6px; animation: none; }
+.header .btn-refresh, .header .btn-logout { min-height: 36px; padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: 5px; background: transparent; color: var(--text-primary); font-size: 12px; font-weight: 500; }
+.header .btn-refresh:hover, .header .btn-logout:hover { background: #fff; border-color: #94a3b8; }
+.header .btn-refresh:focus-visible, .header .btn-logout:focus-visible { outline: 2px solid var(--color-info); outline-offset: 3px; }
+@media (max-width: 700px) { .header { gap: 16px; padding: 8px 0 16px; } .header h1 { font-size: 26px; } .header .header-actions { width: 100%; } .header .connection-status-pill { margin-right: auto; } }

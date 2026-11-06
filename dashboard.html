@@ -51,83 +51,24 @@
     ======================================== -->
 
     <header class="header">
-
       <div class="header-branding">
-
-        <div class="header-icon-badge">
-          <i class="ti ti-flame"></i>
-        </div>
-
         <div>
           <h1>GLiPS</h1>
-          <p class="header-sub">
-            LPG Gas Leak Detection & Safety Monitoring
-          </p>
+          <p class="header-sub">LPG Safety Monitoring</p>
         </div>
-
       </div>
-
-
       <div class="header-actions">
-
-        <div class="connection-status-pill warning"
-             id="systemStatusPill">
-
-          <span class="status-pulse-dot"></span>
-
-          <span class="status-text">
-            CONNECTING
-          </span>
-
+        <div class="connection-status-pill" id="systemStatusPill" role="status">
+          <span class="status-pulse-dot" aria-hidden="true"></span>
+          <span class="status-text">CONNECTING</span>
         </div>
-
-
-        <div class="refresh-countdown"
-             id="refreshCountdown">
-
-          <i class="ti ti-refresh"></i>
-
-          <span id="countdownVal">10</span>s
-
-        </div>
-
-
-        <div class="last-update-wrapper">
-
-          <span class="update-label">
-            Last Reading:
-          </span>
-
-          <span class="last-update"
-                id="lastUpdate">
-            --
-          </span>
-
-        </div>
-
-
-        <button class="btn-refresh"
-                type="button"
-                onclick="manualRefresh()">
-
-          <i class="ti ti-refresh"></i>
-          Refresh
-
+        <button class="btn-refresh" type="button" onclick="manualRefresh()">
+          <i class="ti ti-refresh" aria-hidden="true"></i> Refresh
         </button>
-
-
-        <button class="btn-logout"
-                type="button"
-                onclick="logout()"
-                title="Logout"
-                aria-label="Logout">
-
-          <i class="ti ti-logout"></i>
-
+        <button class="btn-logout" type="button" onclick="logout()" title="Log out" aria-label="Log out">
+          <i class="ti ti-logout" aria-hidden="true"></i> Log out
         </button>
-
       </div>
-
     </header>
 
 
