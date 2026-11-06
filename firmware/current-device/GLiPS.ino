@@ -28,7 +28,8 @@ const char* CHAT_ID = "";
 // ===== LOKASI (TVETMARA LUMUT) =====
 const float DEFAULT_LATITUDE = 4.2186;
 const float DEFAULT_LONGITUDE = 100.6336;
-const String LOCATION_NAME = "TVETMARA LUMUT";
+const String LOCATION_NAME = "IKM Lumut";
+const char* SITE_MAP_URL = "https://maps.app.goo.gl/AqbbRXZjT2Hft84j9";
 
 // ===== SUPABASE =====
 const char* SUPABASE_URL = "https://fkfgimyelgvlsbtxhvih.supabase.co";
@@ -115,6 +116,14 @@ bool voicePlaybackRequested = false;
 bool warningSent = false;
 bool dangerTextSent = false;
 bool dangerPhotoSent = false;
+bool dangerPhotoAttempted = false;
+unsigned int warningTextAttempts = 0;
+unsigned int dangerTextAttempts = 0;
+bool alertSafeTiming = false;
+unsigned long alertSafeSince = 0;
+String dangerEventTime = "";
+const unsigned long ALERT_REARM_SAFE_MS = 60000;
+const unsigned int ALERT_MAX_TEXT_ATTEMPTS = 3;
 
 float gasPPM = NAN;
 float temperature = NAN;
@@ -231,7 +240,7 @@ void stopAlarm() {
 // ==========================================
 String dashboardURL() { return "http://" + WiFi.localIP().toString(); }
 String cameraURL() { return dashboardURL() + ":81/stream"; }
-const char* PUBLIC_STREAM_URL = "";
+const char* PUBLIC_STREAM_URL = "https://main-dried-tennessee-hometown.trycloudflare.com/stream";
 
 String shareableCameraURL() {
   return strlen(PUBLIC_STREAM_URL) ? String(PUBLIC_STREAM_URL) : cameraURL();
@@ -253,10 +262,12 @@ String urlEncode(const String& input) {
 }
 
 String getTimeText() {
+  time_t now = time(nullptr);
+  if (now < 1704067200) return "Not synchronized; device uptime " + String(millis() / 1000) + " s";
   struct tm timeinfo;
-  if (!getLocalTime(&timeinfo, 100)) return "Time unavailable";
-  char buffer[32];
-  strftime(buffer, sizeof(buffer), "%d/%m/%Y %H:%M:%S", &timeinfo);
+  localtime_r(&now, &timeinfo);
+  char buffer[48];
+  strftime(buffer, sizeof(buffer), "%d/%m/%Y %H:%M:%S MYT (UTC+8)", &timeinfo);
   return String(buffer);
 }
 
@@ -332,10 +343,9 @@ bool sendTelegramText(const String& message) {
   http.setTimeout(15000);
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
   
-  String body = "chat_id=" + urlEncode(String(CHAT_ID)) + "&parse_mode=HTML&text=" + urlEncode(message);
-  Serial.println("SUPABASE payload includes hardware_outputs");
+  String body = "chat_id=" + urlEncode(String(CHAT_ID)) + "&disable_web_page_preview=true&text=" + urlEncode(message);
   int code = http.POST(body);
-  Serial.printf("SUPABASE HTTP: %d\n", code);
+  Serial.printf("TELEGRAM HTTP: %d\n", code);
   http.end();
   return code == 200;
 }
@@ -356,107 +366,174 @@ bool sendTelegramLocation(float lat, float lon) {
                 "&latitude=" + String(lat, 6) + 
                 "&longitude=" + String(lon, 6);
 
-  Serial.println("SUPABASE payload includes hardware_outputs");
   int code = http.POST(body);
-  Serial.printf("SUPABASE HTTP: %d\n", code);
+  Serial.printf("TELEGRAM HTTP: %d\n", code);
   http.end();
   return code == 200;
 }
 
 bool sendTelegramPhoto(const String& caption) {
-  if (!cameraReady || WiFi.status() != WL_CONNECTED) return false;
+  if (!cameraReady ||
+      WiFi.status() != WL_CONNECTED)
+    return false;
+
   camera_fb_t* fb = esp_camera_fb_get();
-  if (!fb) return false;
+
+  if (!fb)
+    return false;
+
+  // Release the driver's frame before network I/O so live streaming can continue.
+  const size_t frameLength = fb->len;
+  uint8_t* photoData = static_cast<uint8_t*>(malloc(frameLength));
+  if (!photoData) {
+    esp_camera_fb_return(fb);
+    return false;
+  }
+  memcpy(photoData, fb->buf, frameLength);
+  esp_camera_fb_return(fb);
+  fb = nullptr;
 
   WiFiClientSecure client;
   client.setInsecure();
-  client.setTimeout(20000); // Naikkan timeout untuk gambar
+  client.setTimeout(15000);
+
   if (!client.connect("api.telegram.org", 443)) {
-    esp_camera_fb_return(fb);
+    free(photoData);
     return false;
   }
 
   String boundary = "GLiPSBoundary";
-  String head = "--" + boundary + "\r\nContent-Disposition: form-data; name=\"chat_id\"\r\n\r\n" + String(CHAT_ID) + "\r\n";
-  head += "--" + boundary + "\r\nContent-Disposition: form-data; name=\"parse_mode\"\r\n\r\nHTML\r\n";
-  head += "--" + boundary + "\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\n" + caption + "\r\n";
-  head += "--" + boundary + "\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"glips.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n";
-  String tail = "\r\n--" + boundary + "--\r\n";
-  size_t totalLength = head.length() + fb->len + tail.length();
 
-  client.print("POST /bot" + String(BOT_TOKEN) + "/sendPhoto HTTP/1.1\r\n");
+  String head =
+      "--" + boundary +
+      "\r\nContent-Disposition: form-data; name=\"chat_id\"\r\n\r\n" +
+      String(CHAT_ID) + "\r\n";
+
+  head +=
+      "--" + boundary +
+      "\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\n" +
+      caption + "\r\n";
+
+  head +=
+      "--" + boundary +
+      "\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"glips.jpg\"\r\n"
+      "Content-Type: image/jpeg\r\n\r\n";
+
+  String tail = "\r\n--" + boundary + "--\r\n";
+
+  size_t totalLength =
+      head.length() + frameLength + tail.length();
+
+  client.print(
+      "POST /bot" + String(BOT_TOKEN) +
+      "/sendPhoto HTTP/1.1\r\n"
+  );
+
   client.print("Host: api.telegram.org\r\n");
-  client.print("Content-Type: multipart/form-data; boundary=" + boundary + "\r\n");
-  client.print("Content-Length: " + String(totalLength) + "\r\nConnection: close\r\n\r\n");
+  client.print(
+      "Content-Type: multipart/form-data; boundary=" +
+      boundary + "\r\n"
+  );
+
+  client.print(
+      "Content-Length: " +
+      String(totalLength) +
+      "\r\nConnection: close\r\n\r\n"
+  );
+
   client.print(head);
 
   size_t sent = 0;
-  while (sent < fb->len) {
-    size_t chunk = min((size_t)1024, fb->len - sent);
-    size_t written = client.write(fb->buf + sent, chunk);
-    if (written == 0) break;
+
+  while (sent < frameLength) {
+    size_t chunk =
+        min((size_t)1024, frameLength - sent);
+
+    size_t written =
+        client.write(photoData + sent, chunk);
+
+    if (written == 0)
+      break;
+
     sent += written;
   }
-  if (sent == fb->len) client.print(tail);
 
-  esp_camera_fb_return(fb);
+  if (sent == frameLength)
+    client.print(tail);
+
+  free(photoData);
+
   String response = client.readStringUntil('\n');
   client.stop();
-  return sent == fb->len && response.indexOf(" 200 ") >= 0;
+
+  return sent == frameLength &&
+         response.indexOf(" 200 ") >= 0;
 }
 
-// ==========================================
-// LOGIC TELEGRAM (WARNING & DANGER)
-// ==========================================
+
+String buildTelegramAlert(bool critical) {
+  String message = critical ? "GLiPS | DANGER - GAS LEAK WARNING\n" : "GLiPS | WARNING - ELEVATED GAS LEVEL\n";
+  message += "Location: " + LOCATION_NAME + "\n";
+  message += "Map: " + String(SITE_MAP_URL) + "\n";
+  if (critical) message += "Event time: " + dangerEventTime + "\n";
+  message += "Time sent: " + getTimeText() + "\n";
+  message += "Latest gas reading: " + String(gasPPM, 1) + " ppm\n";
+  message += "Temperature: " + String(temperature, 1) + " C\n";
+  message += "Humidity: " + String(humidity, 1) + " %\n\n";
+  message += "Reported output commands (physical operation not confirmed):\n";
+  message += "Valve relay: " + String(digitalRead(RELAY_VALVE) == HIGH ? "HIGH" : "LOW") + "\n";
+  message += "Exhaust fan: " + String(digitalRead(RELAY_FAN) == FAN_ON ? "ON" : "OFF") + "\n";
+  message += "Buzzer: " + String(digitalRead(BUZZER_PIN) == BUZZER_ON ? "ON" : "OFF") + "\n";
+  message += "Voice: " + String(!dfReady ? "Module unavailable" : voicePlaybackRequested ? "Play requested" : "Stop requested") + "\n\n";
+  message += "Dashboard: " + dashboardURL() + "\n";
+  String stream = shareableCameraURL();
+  message += stream.startsWith("https://") ? "Live camera (while tunnel is active): " : "Live camera (same Wi-Fi only): ";
+  message += stream + "\n\n";
+  message += critical
+    ? "Leave the affected area. Avoid flames and electrical switches. Follow site emergency procedures. Do not assume the gas supply is isolated."
+    : "Check the area using site safety procedures. If gas is smelled or conditions worsen, leave the area and seek assistance.";
+  return message;
+}
+
 void processTelegramAlerts() {
-  if (!sensorValid || WiFi.status() != WL_CONNECTED) return;
   unsigned long now = millis();
-
-  // 1. PERINGKAT WARNING (Teks & Peta Sahaja, Tiada Gambar)
-  if (currentState == STATE_WARNING && !warningSent) {
-    String msg = "⚠️ <b>EARLY WARNING: GAS DETECTED</b> ⚠️\n\n";
-    msg += "📍 Location: <b>" + LOCATION_NAME + "</b>\n";
-    msg += "LPG Level: " + String(gasPPM, 1) + " ppm\n";
-    msg += "Temp: " + String(temperature, 1) + " C\n";
-    msg += "Time: " + getTimeText() + "\n\n";
-    msg += "<i>System is monitoring. Please check the area.</i>";
-    
-    bool textSuccess = sendTelegramText(msg);
-    
-    if (textSuccess) {
-      delay(1000);
-      sendTelegramLocation(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
-      warningSent = true; 
+  // Rearm only after one continuous minute of valid SAFE readings.
+  // Brief WARNING/DANGER transitions must not start a fresh photo cycle.
+  if (sensorValid && currentState == STATE_SAFE && gasPPM <= GAS_SAFE_PPM) {
+    if (!alertSafeTiming) { alertSafeTiming = true; alertSafeSince = now; }
+    if (now - alertSafeSince >= ALERT_REARM_SAFE_MS) {
+      warningSent = false; dangerTextSent = false;
+      dangerPhotoSent = false; dangerPhotoAttempted = false;
+      warningTextAttempts = 0; dangerTextAttempts = 0;
+      dangerEventTime = ""; lastAlert = 0;
     }
+    return;
   }
+  alertSafeTiming = false;
+  if (!sensorValid) return;
+  if (currentState == STATE_DANGER && dangerEventTime.length() == 0)
+    dangerEventTime = getTimeText();
+  if (WiFi.status() != WL_CONNECTED) return;
+  if (lastAlert != 0 && now - lastAlert < ALERT_RETRY) return;
 
-  // 2. PERINGKAT DANGER (Teks, Peta, Gambar)
-  if (currentState == STATE_DANGER) {
-    if (lastAlert != 0 && now - lastAlert < ALERT_RETRY) return; 
-    lastAlert = now;
-
-    if (!dangerTextSent) {
-      String msg = "🚨🚨 <b>CRITICAL DANGER: GAS LEAK!</b> 🚨🚨\n\n";
-      msg += "📍 Location: <b>" + LOCATION_NAME + "</b>\n";
-      msg += "LPG Level: <b>" + String(gasPPM, 1) + " ppm</b>\n";
-      msg += "Temp: " + String(temperature, 1) + " C\n";
-      msg += "Time: " + getTimeText() + "\n\n";
-      msg += "Exhaust Fan: ON\nBuzzer: ON\n\n";
-      msg += "<i>Evacuate immediately! Follow safety procedures.</i>";
-      
-      dangerTextSent = sendTelegramText(msg);
-      
-      if (dangerTextSent) {
-        delay(1000); 
-        sendTelegramLocation(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
-      }
-    }
-
-    if (cameraReady && !dangerPhotoSent) {
-      delay(2000); 
-      String caption = "📸 <b>Live Image from " + LOCATION_NAME + "</b>\nLPG: " + String(gasPPM, 1) + " ppm";
-      dangerPhotoSent = sendTelegramPhoto(caption);
-    }
+  if (currentState == STATE_WARNING && !warningSent && warningTextAttempts < ALERT_MAX_TEXT_ATTEMPTS) {
+    lastAlert = now; warningTextAttempts++;
+    warningSent = sendTelegramText(buildTelegramAlert(false));
+    return;
+  }
+  if (currentState != STATE_DANGER) return;
+  if (!dangerTextSent && dangerTextAttempts < ALERT_MAX_TEXT_ATTEMPTS) {
+    lastAlert = now; dangerTextAttempts++;
+    dangerTextSent = sendTelegramText(buildTelegramAlert(true));
+  }
+  // Text must be acknowledged before the single optional photo attempt.
+  // Do not retry an ambiguous photo response: Telegram may already have accepted it.
+  if (dangerTextSent && cameraReady && !dangerPhotoAttempted) {
+    dangerPhotoAttempted = true;
+    String caption = "GLiPS | IKM Lumut - incident snapshot\nEvent time: " + dangerEventTime;
+    caption += "\nGas reading at capture: " + String(gasPPM, 1) + " ppm";
+    dangerPhotoSent = sendTelegramPhoto(caption);
+    Serial.println(dangerPhotoSent ? "TELEGRAM PHOTO: acknowledged" : "TELEGRAM PHOTO: not confirmed; automatic retry disabled");
   }
 }
 
@@ -470,9 +547,7 @@ void updateSystemState() {
 
   if (newState != currentState) {
     currentState = newState;
-    warningSent = false;
-    dangerTextSent = false;
-    dangerPhotoSent = false;
+    if (currentState == STATE_DANGER) lastAlert = 0;
     updateOutputs();
     updateLCD();
     if (currentState == STATE_DANGER) playAlarm();
@@ -581,7 +656,7 @@ void setup() {
   buzzerOFFFunction();
 
   Serial.begin(115200);
-  Serial.println("GLiPS current-device: hardware reports + voice diagnostics v1");
+  Serial.println("GLiPS current-device: hardware reports + voice diagnostics + Telegram v2");
   delay(500);
 
   digitalWrite(RELAY_FAN, FAN_OFF); pinMode(RELAY_FAN, OUTPUT);
@@ -654,6 +729,12 @@ void loop() {
   handleVoiceDiagnostics();
   server.handleClient();
   unsigned long now = millis();
+  static bool clockConfigured = false;
+  if (!clockConfigured && WiFi.status() == WL_CONNECTED) {
+    configTime(8 * 3600, 0, "pool.ntp.org", "time.google.com");
+    clockConfigured = true;
+    Serial.println("CLOCK: Malaysia time synchronization requested");
+  }
 
   if (WiFi.status() != WL_CONNECTED && now - lastWiFiRetry >= 10000) {
     lastWiFiRetry = now;

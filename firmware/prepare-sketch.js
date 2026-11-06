@@ -1,6 +1,6 @@
 'use strict';
 
-function mergeWorkingSketch(template, working) {
+function mergeWorkingSketch(template, working, options = {}) {
   const includes = code => new Set([...code.matchAll(/^\s*#include\s+[<"]([^>"]+)[>"]/gm)].map(match => match[1]));
   const availableIncludes = includes(template);
   for (const name of includes(working)) {
@@ -35,6 +35,13 @@ function mergeWorkingSketch(template, working) {
     // Callback substitution preserves literal $ and backslashes in private values.
     code = code.replace(declaration(name), (_, prefix, previous, suffix) => prefix + literal + suffix);
   }
+  if (options.cameraUrl) {
+    let url;
+    try { url = new URL(options.cameraUrl); } catch { throw new Error('Enter a valid HTTPS camera URL.'); }
+    if (url.protocol !== 'https:' || url.username || url.password || url.hash) throw new Error('Use an HTTPS camera URL without a password or fragment.');
+    if (url.pathname === '/') url.pathname = '/stream';
+    code = code.replace(declaration('PUBLIC_STREAM_URL'), (_, prefix, previous, suffix) => prefix + JSON.stringify(url.href) + suffix);
+  }
   return '// PRIVATE COMPLETE SKETCH: contains your connection settings. Do not publish.\n' + code.replace(/^\/\/ Public full-system sketch:.*\n/, '');
 }
 
@@ -51,6 +58,7 @@ if (typeof document !== 'undefined') {
   const clear = () => { output.value = ''; result.hidden = true; copy.disabled = true; download.disabled = true; };
   const tell = (message, error = false) => { status.textContent = message; status.classList.toggle('error', error); };
   input.addEventListener('change', () => { clear(); tell('Ready to prepare your selected file.'); });
+  document.getElementById('telegramCameraUrl')?.addEventListener('input', () => { clear(); tell('Camera URL changed. Prepare the code again before copying.'); });
   prepare.addEventListener('click', async () => {
     clear();
     const file = input.files[0];
@@ -65,7 +73,7 @@ if (typeof document !== 'undefined') {
       const response = await fetch(url, {cache: 'no-store'});
       if (!response.ok) throw new Error('The public template could not be loaded. Try again after deployment finishes.');
       const template = await response.text();
-      output.value = mergeWorkingSketch(template, working);
+      output.value = mergeWorkingSketch(template, working, {cameraUrl: document.getElementById('telegramCameraUrl')?.value.trim()});
       result.hidden = false; copy.disabled = false; download.disabled = false;
       tell('Complete code is ready. Your existing connection settings are included.');
       result.scrollIntoView({behavior:'smooth', block:'start'});
