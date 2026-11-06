@@ -2539,14 +2539,30 @@ canvas {
 .camera-settings button { margin-top: 10px; }
 .camera-settings p { line-height: 1.6; margin-top: 10px; }
 
-/* Plain dashboard masthead: typography, one status, and essential actions. */
-.header { padding: 8px 0 18px; background: transparent; border: 0; border-bottom: 1px solid var(--border-strong); border-radius: 0; box-shadow: none; }
-.header h1 { font-family: Arial, Helvetica, sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -.6px; line-height: 1.15; }
-.header .header-sub { margin-top: 5px; font-size: 12px; font-weight: 400; letter-spacing: 0; }
-.header .header-actions { gap: 10px; }
-.header .connection-status-pill { padding: 0; margin-right: 10px; background: transparent; border: 0; border-radius: 0; font-size: 11px; font-weight: 600; letter-spacing: .02em; }
+/* Dashboard masthead: restrained navy identity and compact controls. */
+.header { padding: 22px 24px; background: #fff; border: 1px solid #dfe6eb; border-radius: 14px; box-shadow: 0 2px 3px rgba(20,44,59,.02); gap: 20px; }
+.header .header-branding { gap: 13px; }
+.header .brand-mark { width: 46px; height: 46px; display: grid; place-items: center; flex-shrink: 0; color: #fff; background: #183642; border-radius: 10px; }
+.header .brand-mark svg { width: 32px; height: 32px; }
+.header h1 { font-family: Arial, Helvetica, sans-serif; color: #183642; font-size: 29px; font-weight: 700; letter-spacing: -.9px; line-height: 1.1; }
+.header .wordmark-accent { color: #348878; }
+.header .header-sub { margin-top: 5px; color: #74838c; font-size: 12px; font-weight: 400; letter-spacing: .01em; }
+.header .header-actions { gap: 9px; }
+.header .connection-status-pill { min-height: 32px; box-sizing: border-box; padding: 7px 10px; margin-right: 6px; border: 1px solid #e5e9ed; border-radius: 6px; background: #f5f7f8; color: #667783; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+.header .connection-status-pill.safe { color: #267354; border-color: #dcebe3; background: #f3f9f5; }
+.header .connection-status-pill.warning { color: #986414; border-color: #eee4ce; background: #fcf9f1; }
+.header .connection-status-pill.danger { color: #b63838; border-color: #efdada; background: #fdf5f5; }
 .header .status-pulse-dot { width: 6px; height: 6px; animation: none; }
-.header .btn-refresh, .header .btn-logout { min-height: 36px; padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: 5px; background: transparent; color: var(--text-primary); font-size: 12px; font-weight: 500; }
-.header .btn-refresh:hover, .header .btn-logout:hover { background: #fff; border-color: #94a3b8; }
-.header .btn-refresh:focus-visible, .header .btn-logout:focus-visible { outline: 2px solid var(--color-info); outline-offset: 3px; }
-@media (max-width: 700px) { .header { gap: 16px; padding: 8px 0 16px; } .header h1 { font-size: 26px; } .header .header-actions { width: 100%; } .header .connection-status-pill { margin-right: auto; } }
+.header .btn-refresh, .header .btn-logout { min-height: 38px; padding: 9px 13px; border: 1px solid #dfe6eb; border-radius: 7px; font-size: 12px; font-weight: 600; }
+.header .btn-refresh { background: #183642; border-color: #183642; color: #fff; }
+.header .btn-refresh:hover { background: #244954; border-color: #244954; color: #fff; }
+.header .btn-logout { background: #fff; color: #526471; }
+.header .btn-logout:hover { background: #f5f7f8; border-color: #cbd5dc; color: #183642; }
+.header .btn-refresh:focus-visible, .header .btn-logout:focus-visible { outline: 2px solid #348878; outline-offset: 3px; }
+@media (max-width: 700px) {
+  .header { padding: 18px; gap: 18px; }
+  .header h1 { font-size: 27px; }
+  .header .brand-mark { width: 43px; height: 43px; }
+  .header .header-actions { width: 100%; padding-top: 14px; border-top: 1px solid #edf0f2; gap: 8px; }
+  .header .connection-status-pill { margin-right: auto; }
+}
