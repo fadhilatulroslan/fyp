@@ -2728,3 +2728,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 @media (max-width: 500px) { .dash { gap: 16px; } .header { padding: 18px; } .overview-layout .hero-alert, .response-summary { padding: 21px; } .overview-layout .hero-eyebrow { font-size: 23px; } .response-summary h2 { font-size: 22px; } .main-reading strong { font-size: 47px; } .assistant-panel { padding: 20px; } .assistant-intro { gap: 11px; } .assistant-mark { width: 38px; height: 38px; border-radius: 9px; font-size: 14px; } .assistant-intro h2 { font-size: 18px; } .assistant-input-row { flex-wrap: wrap; } .assistant-input-row input { flex-basis: 100%; } .assistant-input-row button { width: 100%; } .assistant-suggestions { gap: 6px; } .assistant-suggestions button { text-align: left; } .monitoring-layout .camera-controls-panel { display: flex; } .reading-guide-content dl > div { flex-direction: column; gap: 2px; } .reading-guide-content dd { text-align: left; } }
 
 @media (max-width: 500px) { .monitoring-layout .camera-controls-panel { align-items: stretch; } .monitoring-layout .camera-status, .monitoring-layout .camera-buttons, .monitoring-layout .camera-note, .monitoring-layout .camera-settings { width: 100%; box-sizing: border-box; } .overview-layout .hero-alert { gap: 18px; } .readings-row { padding-top: 0; } }
+
+/* One live gas meter; an unavailable reading never looks like zero gas. */
+.meter-readings-row { display: flex; align-items: center; justify-content: space-around; gap: 20px; padding-top: 0; }
+.gas-meter { width: 260px; max-width: 100%; flex: 0 1 260px; text-align: center; min-width: 0; }
+.gas-meter #gaugeCanvas { position: static; inset: auto; display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.meter-reading { display: flex; align-items: baseline; justify-content: center; gap: 7px; margin-top: -2px; color: #176b59; }
+.meter-reading strong { font-size: 39px; line-height: 1.1; letter-spacing: -1.4px; }
+.meter-reading abbr { text-decoration: none; font-size: 15px; cursor: help; }
+.gas-meter > p { color: #71848c; font-size: 11px; margin-top: 5px; }
+.meter-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 11px; margin-top: 9px; font-size: 10px; color: #607780; }
+.meter-legend span::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; background: #269b6d; }
+.meter-legend .warning::before { background: #e7ab3e; }
+.meter-legend .danger::before { background: #d85858; }
+.meter-environment { display: grid; gap: 22px; }
+.gas-meter .meter-hint { max-width: 245px; margin: 10px auto 0; line-height: 1.5; color: #a44b30; }
+@media (max-width: 500px) { .meter-readings-row { flex-direction: column; gap: 20px; } .gas-meter { flex-basis: auto; width: 260px; } .meter-environment { display: flex; width: 100%; justify-content: space-evenly; gap: 15px; } }

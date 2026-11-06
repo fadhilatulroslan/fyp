@@ -84,3 +84,30 @@ actual output logic, as the original full-system sketch did. Existing setInsecur
 calls remain from the supplied network code; TLS trust is not corrected here.
 Sensor/LCD updates may be delayed by blocking Internet requests. Camera streams
 and Quick Tunnel reachability still require validation on the user's equipment.
+
+## Fixed-site location in the same Telegram danger message
+
+v4.1 adds SITE_NAME, SITE_ADDRESS, SITE_MAP_URL, SITE_LATITUDE and SITE_LONGITUDE
+near the local bot settings. They are intentionally empty/NAN in the public
+sketch. Configure the actual installation location locally before uploading.
+No location is obtained from Wi-Fi or inferred as GPS.
+
+- Recommended: set SITE_NAME and SITE_MAP_URL to the verified HTTPS Google Maps
+  share/pin link for the installation. SITE_ADDRESS is optional readable text.
+- Alternatively, supply both latitude (-90..90) and longitude (-180..180). The
+  text builder creates a clickable Maps coordinate link. A provided HTTPS link
+  takes precedence.
+- An address alone creates a clearly labelled address-search link, not a verified
+  coordinate pin. With no configured location, the message explicitly says so;
+  it never sends an invented location or default 0,0 pin.
+
+The location text is inserted in the existing DANGER text message before the
+camera link, using the existing sendMessage request. It does not create a second
+Telegram location-pin message or add a network request. Existing retry behavior
+and hardware control are unchanged. The installation location is shared with the
+configured Telegram chat whenever this danger alert succeeds; verify the pin and
+recipient before use. Keep private site details out of a public filled sketch.
+
+Run `python3 tests/firmware-location.py` for the host-level text/encoding tests.
+The full board compile and actual Telegram delivery still need device validation.
+The startup marker is now `v4.1 + site location` within the full build string.

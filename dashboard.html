@@ -8,7 +8,7 @@
   <title>GLiPS | LPG Gas Leak Detection System</title>
   <meta name="description" content="GLiPS real-time IoT LPG gas leak detection and safety monitoring dashboard.">
 
-  <link rel="stylesheet" href="style.css?v=refined-dashboard-20261106">
+  <link rel="stylesheet" href="style.css?v=gas-meter-20261106">
 
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
@@ -82,10 +82,18 @@
               <p class="hero-message" id="heroMessage">The current gas level is not known yet.</p>
             </div>
           </div>
-          <div class="readings-row">
-            <div class="main-reading"><strong id="heroGas">--</strong><abbr title="Parts per million: a measure of gas concentration">ppm</abbr><span id="heroReadingNote">Waiting for a reading</span></div>
-            <div class="environment-reading"><span>Temperature</span><strong><span id="heroTemp">--</span>°C</strong></div>
-            <div class="environment-reading"><span>Humidity</span><strong><span id="heroHumid">--</span>%</strong></div>
+          <div class="readings-row meter-readings-row">
+            <div class="gas-meter">
+              <canvas id="gaugeCanvas" width="260" height="170" role="img" aria-label="Gas meter: no live reading"></canvas>
+              <div class="meter-reading"><strong id="heroGas">--</strong><abbr title="Parts per million: a measure of gas concentration">ppm</abbr></div>
+              <p id="heroReadingNote">No live reading</p>
+              <div class="meter-legend" aria-label="Meter ranges"><span class="normal">Normal</span><span class="warning">Warning</span><span class="danger">Danger</span></div>
+              <p id="meterHint" class="meter-hint" hidden></p>
+            </div>
+            <div class="meter-environment">
+              <div class="environment-reading"><span>Temperature</span><strong><span id="heroTemp">--</span>°C</strong></div>
+              <div class="environment-reading"><span>Humidity</span><strong><span id="heroHumid">--</span>%</strong></div>
+            </div>
           </div>
           <div class="hero-bottom"><span>Recorded at <span id="heroTime">--</span></span><button class="hero-btn outline" type="button" id="soundBtn" onclick="toggleSound()">Sound on</button></div>
         </div>
@@ -691,7 +699,7 @@
        FLOATING AI CHAT WINDOW
   ========================================== -->
 
-  <script src="script.js?v=refined-dashboard-20261106"></script>
+  <script src="script.js?v=gas-meter-20261106"></script>
 
 </body>
 </html>

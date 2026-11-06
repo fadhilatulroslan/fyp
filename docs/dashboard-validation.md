@@ -155,3 +155,13 @@ voice command reports with output_reports_are_commands=true. Hardware context is
 null when the reading is not live. Browser tests verify the outgoing context;
 compatibility and response quality of the external glips-ai Edge Function still
 require a real authenticated session against that deployed backend.
+
+## Restored live gas meter
+
+One meter is visible beside the current reading in the primary card. It has
+normal/warning/danger reference zones, an accessible live ppm label, and a clamped
+500+ scale while preserving the full numeric reading. Unavailable, stale and
+invalid data show a grey arc without a needle, not a zero-gas indication. A genuine
+live zero remains distinguishable. A 250..300 ppm held-DANGER reading has an
+explicit explanatory hint. Browser checks cover those states; canvas/device
+operation remains separate from real sensor calibration.

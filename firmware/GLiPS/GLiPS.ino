@@ -26,6 +26,14 @@ const char* WIFI_PASS = "";
 const char* BOT_TOKEN = "";
 const char* CHAT_ID = "";
 
+// Fixed installation location. Fill locally; no GPS is inferred from Wi-Fi.
+const char* SITE_NAME = "";
+const char* SITE_ADDRESS = "";
+const char* SITE_MAP_URL = "";  // A verified HTTPS Google Maps pin/share link.
+const double SITE_LATITUDE = NAN;
+const double SITE_LONGITUDE = NAN;
+
+
 // ===== SUPABASE =====
 const char* SUPABASE_URL =
   "https://fkfgimyelgvlsbtxhvih.supabase.co";
@@ -558,6 +566,27 @@ bool sendTelegramText(const String& message) {
   return code == 200;
 }
 
+String telegramLocationText() {
+  String name = String(SITE_NAME); name.trim();
+  String address = String(SITE_ADDRESS); address.trim();
+  String map = String(SITE_MAP_URL); map.trim();
+  const bool coordinatesValid = isfinite(SITE_LATITUDE) && isfinite(SITE_LONGITUDE)
+    && SITE_LATITUDE >= -90 && SITE_LATITUDE <= 90
+    && SITE_LONGITUDE >= -180 && SITE_LONGITUDE <= 180;
+  if (!map.startsWith("https://")) map = "";
+  if (map.length() == 0 && coordinatesValid) {
+    map = "https://www.google.com/maps?q=" + String(SITE_LATITUDE, 6) + "," + String(SITE_LONGITUDE, 6);
+  }
+  String text;
+  if (name.length()) text += "Location: " + name + "\n";
+  if (address.length()) text += "Address: " + address + "\n";
+  if (map.length()) text += "Map: " + map;
+  else if (address.length()) text += "Find address: https://www.google.com/maps/search/?api=1&query=" + urlEncode(address);
+  else if (name.length()) text += "Map pin: not configured";
+  else text = "Location: not configured on this device.";
+  return text;
+}
+
 bool sendTelegramPhoto(const String& caption) {
   if (!cameraReady ||
       WiFi.status() != WL_CONNECTED)
@@ -692,6 +721,8 @@ void processTelegramAlert() {
     "Exhaust Fan: ON (command)\n"
     "Buzzer: ON (command)\n"
     "Valve: RELAY TEST ONLY\n\n";
+
+  message += telegramLocationText() + "\n\n";
 
   message += "LIVE CAMERA:\n" +
     shareableCameraURL();
@@ -861,7 +892,7 @@ void setup() {
   buzzerOFFFunction();
 
   Serial.begin(115200);
-  Serial.println("GLiPS firmware: 300/250 hysteresis + manual valve reset v4");
+  Serial.println("GLiPS firmware: 300/250 hysteresis + manual valve reset v4.1 + site location");
   delay(500);
   Serial.println("WELCOME GLiPS - SUPABASE VERSION");
 

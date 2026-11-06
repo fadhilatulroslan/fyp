@@ -3206,110 +3206,54 @@ window.addEventListener(
 
 // Draw LPG gas meter
 function drawGasGauge(ppm, isLive = false) {
-  const canvas = document.getElementById("gaugeCanvas");
+  const canvas = $("gaugeCanvas");
   if (!canvas) return;
-
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-
+  const width = 260, height = 170;
   const dpr = window.devicePixelRatio || 1;
-  const width = 200;
-  const height = 120;
-
   canvas.width = width * dpr;
   canvas.height = height * dpr;
-  canvas.style.width = width + "px";
-  canvas.style.height = height + "px";
-
+  canvas.style.width = `${width}px`;
+  canvas.style.height = "auto";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
-
-  const cx = 100;
-  const cy = 105;
-  const radius = 78;
-  const lineWidth = 13;
-
-  const value =
-    ppm === null || ppm === undefined || ppm === ""
-      ? null
-      : Number(ppm);
-
-  const valid = value !== null && Number.isFinite(value) && value >= 0;
-
-  const safeMax = THRESHOLD.SAFE_MAX;
-  const dangerMin = THRESHOLD.DANGER_MIN;
-  const scaleMax = Math.max(dangerMin * 1.5, 500);
-
-  function angleFor(number) {
-    const fraction = Math.max(0, Math.min(1, number / scaleMax));
-    return Math.PI + fraction * Math.PI;
-  }
-
+  const value = numberOrNull(ppm);
+  const live = Boolean(isLive && !isReadingStale(currentSensor) && value !== null && value >= 0);
+  const cx = 130, cy = 145, radius = 102, scaleMax = 500;
+  const angle = number => Math.PI + Math.max(0, Math.min(1, number / scaleMax)) * Math.PI;
   function arc(start, end, color) {
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, start, end);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = lineWidth;
-    ctx.lineCap = "butt";
-    ctx.stroke();
+    ctx.beginPath();ctx.arc(cx, cy, radius, start, end);
+    ctx.strokeStyle = color;ctx.lineWidth = 16;ctx.lineCap = "butt";ctx.stroke();
   }
-
-  // Background track
-  arc(Math.PI, Math.PI * 2, "#e2e8f0");
-
-  // SAFE, WARNING, DANGER sections
-  arc(Math.PI, angleFor(safeMax), "#22c55e");
-  arc(angleFor(safeMax), angleFor(dangerMin), "#f59e0b");
-  arc(angleFor(dangerMin), Math.PI * 2, "#ef4444");
-
-  // Needle
-  if (valid) {
-    const angle = angleFor(value);
-    const needleLength = 65;
-
-    const nx = cx + Math.cos(angle) * needleLength;
-    const ny = cy + Math.sin(angle) * needleLength;
-
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(nx, ny);
-    ctx.strokeStyle = "#334155";
-    ctx.lineWidth = 3;
-    ctx.lineCap = "round";
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-    ctx.fillStyle = "#334155";
-    ctx.fill();
+  arc(Math.PI, Math.PI * 2, "#dfe6e9");
+  if (live) {
+    arc(Math.PI, angle(THRESHOLD.SAFE_MAX), "#269b6d");
+    arc(angle(THRESHOLD.SAFE_MAX), angle(THRESHOLD.DANGER_MIN), "#e7ab3e");
+    arc(angle(THRESHOLD.DANGER_MIN), Math.PI * 2, "#d85858");
   }
-
-  // Offline / historical indicator
-  const wrap = canvas.closest(".gauge-wrap");
-
-  if (wrap) {
-    let mode = wrap.querySelector(".glips-gauge-mode");
-
-    if (!mode) {
-      mode = document.createElement("div");
-      mode.className = "glips-gauge-mode";
-      wrap.appendChild(mode);
-    }
-
-    mode.textContent = !valid
-  ? "NO READING"
-  : isLive
-    ? "LIVE READING"
-    : "LAST RECORDED";
-    mode.style.fontSize = "10px";
-    mode.style.fontWeight = "700";
-    mode.style.letterSpacing = "0.5px";
-    mode.style.textAlign = "center";
-    mode.style.position = "absolute";
-    mode.style.bottom = "-10px";
-    mode.style.left = "0";
-    mode.style.right = "0";
-    mode.style.color = isLive ? "#16a34a" : "#64748b";
+  ctx.font = "11px system-ui, sans-serif";ctx.fillStyle = "#70828c";ctx.textBaseline = "middle";
+  [0, THRESHOLD.SAFE_MAX, THRESHOLD.DANGER_MIN, scaleMax].forEach(number => {
+    const theta = angle(number);
+    ctx.textAlign = number === 0 ? "left" : number === scaleMax ? "right" : "center";
+    ctx.fillText(number === scaleMax ? "500+" : String(number), cx + Math.cos(theta) * 124, cy + Math.sin(theta) * 124 + 7);
+  });
+  if (live) {
+    const theta = angle(value);
+    ctx.beginPath();ctx.moveTo(cx, cy);ctx.lineTo(cx + Math.cos(theta) * 79, cy + Math.sin(theta) * 79);
+    ctx.strokeStyle = getReadingStatus(currentSensor) === "DANGER" ? "#b83e3e" : "#183f4b";
+    ctx.lineWidth = 3;ctx.lineCap = "round";ctx.stroke();
+    ctx.beginPath();ctx.arc(cx, cy, 5, 0, Math.PI * 2);ctx.fillStyle = "#183f4b";ctx.fill();
+  }
+  canvas.dataset.live = String(live);
+  canvas.setAttribute("aria-label", live ? `Gas meter: ${formatNumber(value)} ppm. ${getReadingStatus(currentSensor)}.` : "Gas meter: no live reading. Current gas level is unknown.");
+  setText("heroReadingNote", live ? "Current sensor reading" : "No live reading");
+  const hint = $("meterHint");
+  const held = live && value < THRESHOLD.DANGER_MIN && getReadingStatus(currentSensor) === "DANGER";
+  if (hint) {
+    hint.hidden = !held && !(live && value > scaleMax);
+    hint.textContent = held ? "Danger warning stays active until 250 ppm or below."
+      : live && value > scaleMax ? "Above meter scale; the full reading is shown above." : "";
   }
 }
 
@@ -3369,7 +3313,7 @@ showOffline = function (message) {
   setText("heroStatus", !databaseConnected ? "Monitoring connection lost"
     : hasSensorFault(currentSensor) ? "Gas sensor needs attention" : "Gas readings are unavailable");
   setText("heroMessage", "The current gas level is unknown. Check the monitoring device and connection; follow your site procedures if a leak is suspected.");
-  setText("heroReadingNote", currentSensor ? "Last received values are in sensor details" : "No reading received");
+  setText("heroReadingNote", "No live reading");
   ["heroGas", "heroTemp", "heroHumid", "heroTime"].forEach(id => setText(id, "--"));
   drawGasGauge(getSensorGas(currentSensor), false);
 };

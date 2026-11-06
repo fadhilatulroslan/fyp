@@ -53,8 +53,10 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await page.locator('#chartEmptyState').isVisible(),false);
     assert.equal(await text('gasValveStatus'),'CLOSED');
     assert.equal(await text('heroTemp'),'27.0');assert.equal(await text('heroHumid'),'65.0');
-    assert.equal(await page.locator('#aiAssistantPanel').isVisible(),true);assert.equal(await page.locator('#floatingChat,#gasBadge,#tempBadge,#gaugeCanvas').count(),0);
+    assert.equal(await page.locator('#aiAssistantPanel').isVisible(),true);assert.equal(await page.locator('#floatingChat,#gasBadge,#tempBadge').count(),0);
     assert.equal(await page.locator('#assistantQuestionForm').isVisible(),true);
+    assert.equal(await page.locator('#gaugeCanvas').isVisible(),true);assert.equal(await page.locator('#gaugeCanvas').getAttribute('data-live'),'true');assert.match(await page.locator('#gaugeCanvas').getAttribute('aria-label'),/45 ppm/);
+    const meterBox=await page.locator('#gaugeCanvas').boundingBox(), messageBox=await page.locator('#heroMessage').boundingBox();assert(meterBox.y>=messageBox.y+messageBox.height, 'Meter must not overlap the safety message');
     // Every inline button/change handler must have an existing global function.
     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('[onclick],[onchange]')].flatMap(el=>[el.getAttribute('onclick'),el.getAttribute('onchange')]).filter(Boolean).flatMap(code=>[...code.matchAll(/\b([A-Za-z_$][\w$]*)\(/g)].map(m=>m[1])).filter(name=>!['stopPropagation','if'].includes(name)&&typeof window[name]!=='function')),[]);
     assert.equal(await page.locator('.hardware-grid > .hardware-card').count(),3);
@@ -109,6 +111,7 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     await page.locator('.chart-btn[data-period="50"]').click();assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),0);
     assert.equal(await text('responseHeadline'),'Device response is unknown');assert.equal(await text('heroGas'),'--');
     assert.equal(await text('assistantContext'),'Live readings unavailable');
+    assert.equal(await page.locator('#gaugeCanvas').getAttribute('data-live'),'false');assert.match(await page.locator('#gaugeCanvas').getAttribute('aria-label'),/no live reading/);assert.equal(await text('heroReadingNote'),'No live reading');
     assert.equal(await text('gasValveStatus'),'Unknown — ESP offline');assert.equal(await text('alarmStatus'),'Unknown — ESP offline');
     fail=true;await page.evaluate(()=>manualRefresh());assert.equal(await text('quickSupabase'),'Disconnected');assert.equal(await text('heroStatus'),'Monitoring connection lost');assert.match(await text('chartEmptyState'),/Database unavailable/);
     fail=false;rows=[];await page.evaluate(()=>manualRefresh());assert.match(await text('chartEmptyState'),/No sensor data/);
@@ -118,6 +121,8 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),0);
     assert.equal(await page.evaluate(()=>getGasStatus(getSensorGas(currentSensor))),'UNKNOWN');
     console.log('PASS firmware SENSOR ERROR with zero ppm is never SAFE or a plotted measurement');
+    rows=[row(500,0)];await page.evaluate(()=>manualRefresh());assert.equal(await text('heroGas'),'0');assert.equal(await page.locator('#gaugeCanvas').getAttribute('data-live'),'true');
+    rows=[{...row(501,275),status:'DANGER'}];await page.evaluate(()=>manualRefresh());assert.equal(await page.locator('#meterHint').isVisible(),true);assert.match(await text('meterHint'),/250/);assert.equal(await text('heroStatus'),'Gas leak warning');
     rows=[row(6,40)];await page.evaluate(()=>manualRefresh());assert.equal(await text('heroStatus'),'Gas level is normal');
     // Staleness timer must work without waiting for a successful database response.
     await page.clock.install();await page.evaluate(()=>{clearInterval(refreshTimer);clearInterval(countdownTimer);currentSensor.created_at=new Date(Date.now()-19000).toISOString();startRefreshTimers();clearInterval(refreshTimer)});
