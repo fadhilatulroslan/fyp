@@ -22,7 +22,8 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     browser = await chromium.launch({executablePath:process.env.CHROMIUM_PATH || '/usr/bin/chromium',headless:true,args:['--no-sandbox'],...(process.env.HTTPS_PROXY ? {proxy:{server:process.env.HTTPS_PROXY,bypass:'127.0.0.1,localhost'}} : {})});
     const page = await browser.newPage();
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
-    let rows=[row(1,45)], fail=false, aiFail=false, telegramCalls=0;
+    let rows=[row(1,45)], fail=false, aiFail=false, telegramCalls=0, aiRequests=0;
+    let pendingAI = null, releaseAI = null, lastAIPayload = null;
     // Use the real SDK with a test-only session, without needing a real account.
     await page.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2*', async route => {
       const response = await route.fetch();
@@ -32,7 +33,10 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     await page.route(backend+'/**', async route => {
       const url = new URL(route.request().url());
       if(url.pathname.startsWith('/rest/v1/')) return route.fulfill({status:fail?503:200,contentType:'application/json',body:JSON.stringify(fail?{message:'Simulated outage'}:rows)});
-      if(url.pathname.endsWith('/glips-ai')) return route.fulfill({status:aiFail?500:200,contentType:'application/json',body:JSON.stringify(aiFail?{error:'Simulated AI failure'}:{answer:'**Live response**\n<script>bad()</script>'})});
+      if(url.pathname.endsWith('/glips-ai')) {
+        if(route.request().method()==='POST') { aiRequests++; lastAIPayload=route.request().postDataJSON(); if(pendingAI) await pendingAI; }
+        return route.fulfill({status:aiFail?500:200,contentType:'application/json',body:JSON.stringify(aiFail?{error:'Simulated AI failure'}:{answer:'**Live response**\n<script>bad()</script>'})});
+      }
       if(url.pathname.endsWith('/test-telegram')) {telegramCalls++;return route.fulfill({contentType:'application/json',body:'{"ok":true}'});}
       return route.fulfill({status:401,contentType:'application/json',body:'{"message":"No real authentication in tests"}'});
     });
@@ -48,7 +52,9 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await page.evaluate(()=>currentChartPeriod),10);
     assert.equal(await page.locator('#chartEmptyState').isVisible(),false);
     assert.equal(await text('gasValveStatus'),'CLOSED');
-    assert.equal(await text('gasBadge'),'SAFE');assert.equal(await text('tempBadge'),'Live');
+    assert.equal(await text('heroTemp'),'27.0');assert.equal(await text('heroHumid'),'65.0');
+    assert.equal(await page.locator('#aiAssistantPanel').isVisible(),true);assert.equal(await page.locator('#floatingChat,#gasBadge,#tempBadge,#gaugeCanvas').count(),0);
+    assert.equal(await page.locator('#assistantQuestionForm').isVisible(),true);
     // Every inline button/change handler must have an existing global function.
     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('[onclick],[onchange]')].flatMap(el=>[el.getAttribute('onclick'),el.getAttribute('onchange')]).filter(Boolean).flatMap(code=>[...code.matchAll(/\b([A-Za-z_$][\w$]*)\(/g)].map(m=>m[1])).filter(name=>!['stopPropagation','if'].includes(name)&&typeof window[name]!=='function')),[]);
     assert.equal(await page.locator('.hardware-grid > .hardware-card').count(),3);
@@ -86,7 +92,7 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await page.locator('#dotAlarm').evaluate(el=>el.classList.contains('active')),false);
     console.log('PASS ESP nested output commands, expanded details, reporting indicators, missing fields');
 
-    for (const [id,gas,status] of [[2,200,'Gas level is rising'],[3,350,'Gas leak warning'],[4,80,'Gas level is normal']]) {
+    for (const [id,gas,status] of [[2,200,'Gas level is above normal'],[3,350,'Gas leak warning'],[4,80,'Gas level is normal']]) {
       rows=[row(id,gas),...rows];await page.evaluate(()=>manualRefresh());assert.equal(await text('heroStatus'),status);
     }
     assert.equal(await page.locator('#alertTableBody .danger').count(),1);assert.equal(await page.locator('#alertTableBody .warning').count(),1);
@@ -102,12 +108,12 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),0);assert.match(await text('chartEmptyState'),/ESP32 offline/);
     await page.locator('.chart-btn[data-period="50"]').click();assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),0);
     assert.equal(await text('responseHeadline'),'Device response is unknown');assert.equal(await text('heroGas'),'--');
-    assert.equal(await text('gasBadge'),'Not live');assert.equal(await page.locator('#gasBarFill').evaluate(el=>el.style.width),'0%');
+    assert.equal(await text('assistantContext'),'Live readings unavailable');
     assert.equal(await text('gasValveStatus'),'Unknown — ESP offline');assert.equal(await text('alarmStatus'),'Unknown — ESP offline');
     fail=true;await page.evaluate(()=>manualRefresh());assert.equal(await text('quickSupabase'),'Disconnected');assert.equal(await text('heroStatus'),'Monitoring connection lost');assert.match(await text('chartEmptyState'),/Database unavailable/);
     fail=false;rows=[];await page.evaluate(()=>manualRefresh());assert.match(await text('chartEmptyState'),/No sensor data/);
     rows=[{...row(55,0),status:'SENSOR ERROR'}];await page.evaluate(()=>manualRefresh());
-    assert.equal(await text('heroStatus'),'Gas sensor needs attention');assert.equal(await text('gasPpm'),'--');
+    assert.equal(await text('heroStatus'),'Gas sensor needs attention');assert.equal(await text('heroGas'),'--');
     assert.match(await text('quickESP32'),/Online/);assert.match(await text('chartEmptyState'),/Sensor error/);
     assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),0);
     assert.equal(await page.evaluate(()=>getGasStatus(getSensorGas(currentSensor))),'UNKNOWN');
@@ -120,7 +126,8 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     await page.clock.resume();rows=[row(7,50)];await page.evaluate(()=>manualRefresh());
     await page.evaluate(()=>{sb.auth.getSession=async()=>({data:{session:{access_token:'test-only'}},error:null})});
     await page.evaluate(()=>callAI('Explain reading','main'));assert.match(await page.locator('#chatHistory').innerText(),/Live response/);assert.equal(await page.locator('#chatHistory script').count(),0);
-    aiFail=true;await page.evaluate(()=>callAI('Try again','floating'));assert.match(await page.locator('#floatingChatBody').innerText(),/Simulated AI failure/);assert.equal(await page.evaluate(()=>isAIWorking),false);
+    assert.equal(lastAIPayload.telemetry.output_reports_are_commands,true);assert.equal(lastAIPayload.telemetry.hardware_outputs.gas_valve,'CLOSED');assert.equal(lastAIPayload.telemetry.hardware_outputs.exhaust_fan,true);
+    aiFail=true;await page.evaluate(()=>callAI('Try again','main'));assert.match(await page.locator('#chatHistory').innerText(),/Simulated AI failure/);assert.equal(await page.evaluate(()=>isAIWorking),false);
     await page.evaluate(()=>sendTelegramAlert());assert.equal(telegramCalls,0);
     await page.evaluate(()=>{CONFIG.telegramAlertEndpoint=CONFIG.supabaseUrl+'/functions/v1/test-telegram'});await page.evaluate(()=>Promise.all([sendTelegramAlert(),sendTelegramAlert()]));assert.equal(telegramCalls,1);assert.match(await page.locator('.glips-toast').innerText(),/Manual alert request accepted/);
     console.log('PASS simulated AI response/error, escaped content, Telegram config and duplicate-send guard');
@@ -139,7 +146,17 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await page.locator('#captureBtn,#sendPhotoBtn').count(),0);
     await page.locator('#soundBtn').click();assert.equal(await page.locator('#soundBtn').getAttribute('aria-pressed'),'false');
     await page.evaluate(()=>openAIChat());await page.keyboard.press('Escape');assert.equal(await page.locator('#chatModal').isVisible(),false);
-    await page.getByRole('button',{name:'Help with readings'}).click();assert.equal(await page.locator('#floatingChat').isVisible(),true);await page.locator('.floating-chat-close').click();assert.equal(await page.locator('#floatingChat').isVisible(),false);
+    await page.getByRole('button',{name:'Open AI assistant'}).click();assert.equal(await page.locator('#chatModal').isVisible(),true);
+    await page.keyboard.press('Tab');await page.keyboard.press('Tab');assert.equal(await page.locator('[aria-label="Close AI chat"]').evaluate(el=>document.activeElement===el),true);
+    await page.keyboard.press('Escape');assert.equal(await page.locator('#chatModal').isVisible(),false);assert.equal(await page.locator('#aiHeaderButton').evaluate(el=>document.activeElement===el),true);
+    aiFail=false;pendingAI=new Promise(resolve=>{releaseAI=resolve});
+    await page.locator('#assistantQuestion').fill('Explain the current reading');await page.locator('#assistantQuestionForm button').click();
+    await page.waitForFunction(()=>isAIWorking);assert.equal(await page.locator('#assistantQuestion').isDisabled(),true);assert.equal(await page.locator('[aria-label="Close AI chat"]').isEnabled(),true);
+    await page.locator('[aria-label="Close AI chat"]').click();assert.equal(await page.locator('#chatModal').isVisible(),false);
+    releaseAI();pendingAI=null;await page.waitForFunction(()=>!isAIWorking);assert.equal(await page.locator('#assistantQuestion').isEnabled(),true);
+    const beforeSuggestion=aiRequests;await page.getByRole('button',{name:'Explain this reading',exact:true}).click();await page.waitForFunction(()=>!isAIWorking);assert.equal(aiRequests,beforeSuggestion+1);assert.equal(await page.locator('#chatModal').isVisible(),true);
+    const beforeFollowup=aiRequests;await page.locator('#chatInput').fill('Explain that more simply');await page.locator('#chatInput').press('Enter');await page.waitForFunction(()=>!isAIWorking);assert.equal(aiRequests,beforeFollowup+1);
+    await page.keyboard.press('Escape');console.log('PASS visible AI panel, header entry, focus trap, close while waiting, suggestions and one-request Enter follow-up');
     await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth <= window.innerWidth),true);
     console.log('PASS camera start/stop/failure, sound, modal close, mobile width');
     await page.evaluate(()=>{sb.auth.signOut=async()=>({error:null})});page.once('dialog',d=>d.accept());await page.evaluate(()=>logout());await page.waitForURL('**/index.html');

@@ -8,7 +8,7 @@
   <title>GLiPS | LPG Gas Leak Detection System</title>
   <meta name="description" content="GLiPS real-time IoT LPG gas leak detection and safety monitoring dashboard.">
 
-  <link rel="stylesheet" href="style.css?v=clear-dashboard-20261106">
+  <link rel="stylesheet" href="style.css?v=refined-dashboard-20261106">
 
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
@@ -57,7 +57,7 @@
           <span class="status-pulse-dot" aria-hidden="true"></span>
           <span class="status-text">CONNECTING</span>
         </div>
-        <button class="btn-help" id="floatingChatBtn" type="button" onclick="openFloatingChat()" aria-label="Help with readings">Help</button>
+        <button class="btn-help" id="aiHeaderButton" type="button" onclick="openAIChat()" aria-label="Open AI assistant">Ask AI</button>
         <button class="btn-refresh" type="button" onclick="manualRefresh()">
           <i class="ti ti-refresh" aria-hidden="true"></i> Refresh
         </button>
@@ -91,7 +91,7 @@
         </div>
       </section>
       <section class="response-summary section" id="responseSummary" aria-labelledby="responseHeadline">
-        <span class="summary-eyebrow">DEVICE RESPONSE</span>
+        <span class="summary-eyebrow">SYSTEM RESPONSE</span>
         <h2 id="responseHeadline">Waiting for device reports</h2>
         <p id="responseNextStep">Device actions have not been confirmed.</p>
         <dl class="response-list">
@@ -102,13 +102,31 @@
         <button type="button" class="text-button" onclick="openDeviceDetails()">View device details <i class="ti ti-arrow-right" aria-hidden="true"></i></button>
       </section>
     </div>
+    <section class="assistant-panel" id="aiAssistantPanel" aria-labelledby="assistantTitle">
+      <div class="assistant-intro">
+        <span class="assistant-mark" aria-hidden="true">AI</span>
+        <div><h2 id="assistantTitle">GLiPS AI Assistant</h2><p>Understand the readings and device reports in plain English.</p><span id="assistantContext" class="assistant-context">Waiting for readings</span></div>
+      </div>
+      <div class="assistant-tools">
+        <form id="assistantQuestionForm" onsubmit="submitAssistantQuestion(event)">
+          <label for="assistantQuestion">Your question</label>
+          <div class="assistant-input-row"><input id="assistantQuestion" name="question" type="text" required maxlength="2000" placeholder="Ask about the gas level or system response..." autocomplete="off"><button type="submit">Ask AI <i class="ti ti-arrow-up-right" aria-hidden="true"></i></button></div>
+        </form>
+        <div class="assistant-suggestions" aria-label="Suggested questions">
+          <button type="button" onclick="triggerSuggestedAI('Explain the latest gas reading in plain English, including whether it is live.')">Explain this reading</button>
+          <button type="button" onclick="triggerSuggestedAI('Explain the reported shut-off, ventilation and alarm commands. Do not assume physical operation is confirmed.')">Explain device response</button>
+          <button type="button" onclick="triggerSuggestedAI('Based on the current readings and reported valve latch, what should an operator do next? State clearly if monitoring is unavailable.')">What should I do?</button>
+        </div>
+        <p class="assistant-footnote">Explains readings; it does not operate the devices.</p>
+      </div>
+    </section>
     <div class="monitoring-layout"><section class="section graph-section">
 
         <div class="section-title">
 
           <i class="ti ti-chart-area-line"></i>
 
-          <h2>Gas level over time</h2>
+          <h2>Gas trend</h2>
 
 
           <div class="chart-controls" aria-label="Number of recent readings"><span>Latest readings</span>
@@ -137,32 +155,27 @@
 
 
 
-        <p class="section-description">A higher line means more gas. Reference lines show the configured alarm levels.</p>
+        <p class="section-description">Watch how gas levels change. Gaps indicate missing readings.</p>
         <div class="chart-legend-banner">
 
           <span class="legend-item safe">
 
             <i class="ti ti-point-filled"></i>
-            SAFE (≤100)
+            NORMAL ≤100 ppm
 
           </span>
 
 
-          <span class="legend-item warning">
 
-            <i class="ti ti-point-filled"></i>
-            WARNING (&gt;100)
-
-          </span>
 
 
           <span class="legend-item danger">
 
             <i class="ti ti-point-filled"></i>
-            DANGER TRIGGER (300+)
+            DANGER ≥300 ppm
 
           </span>
-          <span class="legend-item"><i class="ti ti-point-filled" style="color:#7c3aed"></i> DANGER RESET (≤250)</span>
+          <span class="legend-item"><i class="ti ti-point-filled" style="color:#7c3aed"></i> RESET ≤250 ppm</span>
 
         </div>
 
@@ -183,9 +196,7 @@
 
         <h2>Live camera</h2>
 
-        <span class="section-hint">
-          Live monitoring
-        </span>
+
 
       </div>
 
@@ -325,7 +336,7 @@
       </div>
 
 
-      <p class="section-description">Changes observed since this page was opened. Device actions are reported commands, not physical confirmation.</p>
+      <p class="section-description">Reported changes from this session.</p>
       <div id="eventLog"
            class="event-log">
 
@@ -581,435 +592,12 @@
         </div>
       </div>
     </section></details>
-    <details class="technical-section"><summary>Sensor readings and configured thresholds</summary><section class="section">
+    <details class="technical-section reading-guide"><summary>About the readings and alarm levels</summary>
+      <div class="reading-guide-content">
+        <p><strong>ppm</strong> means parts per million, a measure of gas concentration. Temperature and humidity are shown alongside the gas reading.</p>
+        <dl><div><dt>Normal range</dt><dd>100 ppm or below</dd></div><div><dt>Danger warning</dt><dd>Starts at 300 ppm or above</dd></div><div><dt>Danger clears</dt><dd>At 250 ppm or below; the valve still needs a local manual reset</dd></div></dl>
+      </div></details>
 
-      <div class="section-title">
-
-        <i class="ti ti-sensors"></i>
-
-        <h2>Sensor Summary</h2>
-
-
-
-      </div>
-
-
-      <div class="sensor-cards-grid">
-
-
-        <!-- SYSTEM STATUS -->
-
-        <div class="sensor-card status-card"
-             id="systemStatus">
-
-          <div class="sensor-card-header">
-
-            <div class="sensor-icon status">
-              <i class="ti ti-heartbeat"></i>
-            </div>
-
-
-
-          </div>
-
-
-          <div class="sensor-label">
-            System Status
-          </div>
-
-
-          <div class="sensor-value-group">
-
-            <span class="sensor-value status-text-large"
-                  id="sysStatus">
-              --
-            </span>
-
-          </div>
-
-
-          <span class="sensor-badge-status info"
-                id="sysStatusBadge">
-            WAITING
-          </span>
-
-
-          <div class="sensor-tooltip">
-
-            <span class="tooltip-icon">
-              <i class="ti ti-info-circle"></i>
-            </span>
-
-            <span class="tooltip-text"
-                  id="sysStatusInfo">
-
-              Waiting for live sensor readings.
-
-            </span>
-
-          </div>
-
-        </div>
-
-
-
-        <!-- GAS CONCENTRATION -->
-
-        <div class="sensor-card gas-card"
-             id="gasCard">
-
-          <div class="sensor-card-header">
-
-            <div class="sensor-icon gas">
-              <i class="ti ti-wind"></i>
-            </div>
-
-
-
-
-          </div>
-
-
-          <div class="sensor-label">
-
-            LPG Gas Concentration
-
-
-            <span class="threshold-info"
-                  onclick="event.stopPropagation();toggleThresholdInfo()">
-
-              <i class="ti ti-info-circle"></i>
-
-
-              <div class="threshold-popup"
-                   id="thresholdPopup">
-
-                <div class="range-item">
-
-                  <span class="range-dot safe"></span>
-
-                  <span>
-                    SAFE: 100 ppm and below
-                  </span>
-
-                </div>
-
-
-                <div class="range-item">
-
-                  <span class="range-dot warning"></span>
-
-                  <span>
-                    WARNING: above 100 ppm; DANGER resets at 250 ppm
-                  </span>
-
-                </div>
-
-
-                <div class="range-item">
-
-                  <span class="range-dot danger"></span>
-
-                  <span>
-                    DANGER trigger: 300 ppm and above
-                  </span>
-
-                </div>
-
-
-                <div class="popup-current">
-
-                  Current:
-                  <span id="currentRangeStatus">--</span>
-
-                </div>
-
-              </div>
-
-            </span>
-
-          </div>
-
-
-
-          <div class="sensor-value-group">
-
-            <span class="sensor-value gas-value"
-                  id="gasPpm">
-              --
-            </span>
-
-            <span class="sensor-unit">
-              ppm
-            </span>
-
-          </div>
-
-
-
-          <div class="gas-bar-wrap">
-
-            <div class="gas-bar-track">
-
-              <div class="gas-bar-fill"
-                   id="gasBarFill"></div>
-
-            </div>
-
-
-            <div class="gas-bar-labels">
-
-              <span>0</span>
-              <span>100</span>
-              <span>300</span>
-              <span>500+</span>
-
-            </div>
-
-          </div>
-
-
-
-          <span class="sensor-badge-status info"
-                id="gasBadge">
-            WAITING
-          </span>
-
-
-
-          <div class="sensor-tooltip">
-
-            <span class="tooltip-icon">
-              <i class="ti ti-info-circle"></i>
-            </span>
-
-            <span class="tooltip-text"
-                  id="gasStatusInfo">
-
-              Waiting for MQ-6 sensor reading.
-
-            </span>
-
-          </div>
-
-        </div>
-
-
-
-        <!-- TEMPERATURE -->
-
-        <div class="sensor-card temp-card">
-
-          <div class="sensor-card-header">
-
-            <div class="sensor-icon temp">
-              <i class="ti ti-temperature"></i>
-            </div>
-
-
-
-
-          </div>
-
-
-          <div class="sensor-label">
-
-            Temperature
-
-
-            <span class="threshold-info"
-                  onclick="event.stopPropagation();toggleTempInfo()">
-
-              <i class="ti ti-info-circle"></i>
-
-
-              <div class="threshold-popup"
-                   id="tempPopup">
-
-                <div class="range-item">
-
-                  <span class="range-dot safe"></span>
-
-                  <span>
-                    Normal: 20–40°C
-                  </span>
-
-                </div>
-
-
-                <div class="range-item">
-
-                  <span class="range-dot warning"></span>
-
-                  <span>
-                    Outside reference range
-                  </span>
-
-                </div>
-
-
-                <div class="popup-current">
-
-                  Current:
-                  <span id="currentTempStatus">--</span>
-
-                </div>
-
-              </div>
-
-            </span>
-
-          </div>
-
-
-
-          <div class="sensor-value-group">
-
-            <span class="sensor-value"
-                  id="temperature">
-              --
-            </span>
-
-            <span class="sensor-unit">
-              °C
-            </span>
-
-          </div>
-
-
-
-          <span class="sensor-badge-status info"
-                id="tempBadge">
-            WAITING
-          </span>
-
-
-
-          <div class="sensor-tooltip">
-
-            <span class="tooltip-icon">
-              <i class="ti ti-info-circle"></i>
-            </span>
-
-            <span class="tooltip-text"
-                  id="tempStatusInfo">
-
-              DHT22 temperature reading.
-
-            </span>
-
-          </div>
-
-        </div>
-
-
-      </div>
-
-    </section><div class="technical-gauge"><canvas id="gaugeCanvas" width="200" height="120"></canvas><p>ppm means parts per million. The reference lines show the configured normal limit, danger trigger and danger reset level.</p></div></details>
-    <details class="technical-section"><summary>Ask a question about the readings</summary><section class="section ai-assistant-section">
-
-        <div class="section-title">
-
-          <i class="ti ti-robot"></i>
-
-          <h2>AI Safety Assistant</h2>
-
-        </div>
-
-
-        <p class="ai-subtitle">
-
-          Ask about current sensor readings,
-          safety conditions and recommended actions.
-
-        </p>
-
-
-
-        <div class="suggested-questions">
-
-          <span class="suggested-title">
-            Suggested Questions
-          </span>
-
-
-          <button class="suggested-chip"
-                  type="button"
-                  onclick="triggerSuggestedAI('Why is the gas level high?','trend')">
-
-            Why is the gas level high?
-
-          </button>
-
-
-          <button class="suggested-chip"
-                  type="button"
-                  onclick="triggerSuggestedAI('What could cause the leak?','maintenance')">
-
-            What could cause the leak?
-
-          </button>
-
-
-          <button class="suggested-chip"
-                  type="button"
-                  onclick="triggerSuggestedAI('What should I do now?','safety')">
-
-            What should I do now?
-
-          </button>
-
-
-          <button class="suggested-chip"
-                  type="button"
-                  onclick="triggerSuggestedAI('What does the valve report mean?','safety')">
-
-            What does the valve report mean?
-
-          </button>
-
-
-          <button class="suggested-chip"
-                  type="button"
-                  onclick="triggerSuggestedAI('What does the fan status mean?','maintenance')">
-
-            What does the fan status mean?
-
-          </button>
-
-        </div>
-
-
-
-        <div class="ai-quick-trigger-card"
-             onclick="openAIChat()"
-             role="button"
-             tabindex="0"
-             onkeydown="if(event.key==='Enter')openAIChat()">
-
-          <div class="ai-trigger-icon">
-            <i class="ti ti-messages"></i>
-          </div>
-
-
-          <div class="ai-trigger-text">
-
-            <strong>
-              Open Full AI Diagnostics
-            </strong>
-
-            <span>
-              Analyze sensor telemetry and safety status
-            </span>
-
-          </div>
-
-
-          <i class="ti ti-chevron-right arrow-icon"></i>
-
-        </div>
-
-      </section></details>
     <button type="button" id="manualAlertButton" class="manual-alert-button" onclick="sendTelegramAlert()" hidden>Send a manual alert</button>
     <footer class="dashboard-footer"><span>GLiPS · LPG Safety Monitoring</span><span>Readings and device reports update automatically</span></footer>
   </main>
@@ -1023,7 +611,7 @@
   <div class="chat-modal-overlay"
        id="chatModal">
 
-    <div class="chat-modal">
+    <div class="chat-modal" role="dialog" aria-modal="true" aria-labelledby="aiDialogTitle">
 
       <div class="chat-modal-header">
 
@@ -1032,7 +620,7 @@
           <i class="ti ti-robot"></i>
 
           <span>
-            GLiPS AI Safety Assistant
+            <span id="aiDialogTitle">GLiPS AI Assistant</span>
           </span>
 
         </div>
@@ -1050,6 +638,7 @@
 
 
 
+      <p id="aiRequestStatus" class="ai-request-status" role="status" aria-live="polite"></p>
       <div id="chatHistory"
            class="chat-history">
 
@@ -1067,10 +656,10 @@
       <div class="chat-input-group">
 
         <input type="text"
-               id="chatInput"
+               id="chatInput" maxlength="2000" aria-label="Your message"
                class="chat-input"
                placeholder="Ask about sensor readings..."
-               onkeydown="if(event.key==='Enter')sendChat()">
+>
 
 
         <button type="button"
@@ -1102,95 +691,7 @@
        FLOATING AI CHAT WINDOW
   ========================================== -->
 
-  <div class="floating-chat"
-       id="floatingChat">
-
-    <div class="floating-chat-header">
-
-      <div class="floating-chat-title">
-
-        <i class="ti ti-robot"></i>
-
-        <span>
-          AI Safety Assistant
-        </span>
-
-      </div>
-
-
-      <button class="floating-chat-close"
-              type="button"
-              onclick="closeFloatingChat()"
-              aria-label="Close chat">
-
-        <i class="ti ti-x"></i>
-
-      </button>
-
-    </div>
-
-
-
-    <div class="floating-chat-body"
-         id="floatingChatBody">
-
-      <div class="floating-chat-msg bot">
-
-        <div class="floating-chat-avatar">
-          <i class="ti ti-robot"></i>
-        </div>
-
-
-        <div class="floating-chat-bubble">
-
-          Hi! I'm your GLiPS AI Safety Assistant.
-          Ask about gas readings, emergency actions
-          or device status.
-
-        </div>
-
-      </div>
-
-    </div>
-
-
-
-    <div class="floating-chat-input">
-
-      <input type="text"
-             id="floatingChatInput"
-             placeholder="Ask about system condition..."
-             onkeydown="if(event.key==='Enter')sendFloatingChat()">
-
-
-      <button type="button"
-              onclick="sendFloatingChat()"
-              aria-label="Send message">
-
-        <i class="ti ti-send"></i>
-
-      </button>
-
-    </div>
-
-  </div>
-
-
-
-  <!-- ==========================================
-       DANGER OVERLAY
-  ========================================== -->
-
-  <div class="danger-overlay"
-       id="dangerOverlay"></div>
-
-
-
-  <!-- ==========================================
-       MAIN JAVASCRIPT
-  ========================================== -->
-
-  <script src="script.js?v=clear-dashboard-20261106"></script>
+  <script src="script.js?v=refined-dashboard-20261106"></script>
 
 </body>
 </html>

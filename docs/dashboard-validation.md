@@ -133,3 +133,25 @@ delivery confirmations or physical feedback, and is limited to the current page
 session. Camera failure offers Retry connection, and HTTPS camera settings persist
 on that browser. This redesign does not modify the firmware or establish live
 hardware/backend readiness.
+
+## Refined hierarchy and prominent assistant
+
+The AI question form and three suggested prompts are visible directly after the
+current condition and response panels, before the trend/camera row. Ask AI in the
+header opens the same dialog. A single conversation replaces the separate floating
+window. Requests disable only send/prompt controls; users can close the dialog
+while waiting. Keyboard focus stays in the dialog and returns to a usable trigger
+on close. Enter submits one follow-up. Loading, backend failures and escaped reply
+content are covered by browser checks with an intercepted API.
+
+Repeated sensor-summary cards and the duplicate gauge are removed. Units and
+thresholds remain in a short expandable reading guide, and device reports remain
+accessible from the response panel. The new layout preserves history filters,
+export, print, sound, camera settings/retry and login/logout. It does not change
+ESP firmware or prove live camera, AI backend, Telegram or physical-device behavior.
+
+AI request telemetry now includes the available valve, latch, fan, buzzer, LED and
+voice command reports with output_reports_are_commands=true. Hardware context is
+null when the reading is not live. Browser tests verify the outgoing context;
+compatibility and response quality of the external glips-ai Edge Function still
+require a real authenticated session against that deployed backend.

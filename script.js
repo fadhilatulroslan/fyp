@@ -70,6 +70,8 @@ let isLoading = false;
 let isCameraOn = false;
 let isSoundOn = true;
 let isAIWorking = false;
+let aiReturnFocus = null;
+let aiPreviousBodyOverflow = "";
 
 let cameraImageElement = null;
 
@@ -830,7 +832,7 @@ function updateHeroAlert(record, status) {
     },
 
     WARNING: {
-      title: "Gas level is rising",
+      title: "Gas level is above normal",
       description:
         "Keep clear of suspected leaks and ask the operator to check the area.",
       icon: "ti ti-alert-triangle"
@@ -1115,6 +1117,7 @@ function updateResponseSummary(record, fresh) {
   const panel = $("responseSummary");
   if (!panel) return;
   panel.classList.remove("attention", "unavailable");
+  setText("assistantContext", fresh ? "Current readings available" : "Live readings unavailable");
   if (!fresh) {
     panel.classList.add("unavailable");
     setText("responseHeadline", "Device response is unknown");
@@ -2494,57 +2497,49 @@ function openAI() {
 
 function openAIChat() {
   const modal = getAIModal();
-
-  if (!modal) {
-    showToast(
-      "AI modal not found in HTML.",
-      "danger"
-    );
-    return;
+  if (!modal) return;
+  if (!modal.classList.contains("show")) {
+    aiReturnFocus = document.activeElement;
+    aiPreviousBodyOverflow = document.body.style.overflow;
   }
-
   modal.classList.add("show");
   modal.style.display = "flex";
-
-  $("chatInput")?.focus();
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  if (isAIWorking) modal.querySelector('[aria-label="Close AI chat"]')?.focus();
+  else $("chatInput")?.focus();
 }
 
-function closeAI() {
-  closeAIChat();
-}
+function closeAI() { closeAIChat(); }
 
 function closeAIChat() {
   const modal = getAIModal();
-
-  if (!modal) return;
-
+  if (!modal?.classList.contains("show")) return;
   modal.classList.remove("show");
   modal.style.display = "none";
+  modal.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = aiPreviousBodyOverflow;
+  const target = aiReturnFocus?.isConnected && !aiReturnFocus.disabled ? aiReturnFocus : $("aiHeaderButton");
+  target?.focus();
+}
+
+async function submitAssistantQuestion(event) {
+  event?.preventDefault();
+  if (isAIWorking) return;
+  const input = $("assistantQuestion");
+  const question = input?.value.trim();
+  if (!question) { input?.focus(); showToast("Enter a question to ask the assistant.", "info"); return; }
+  input.value = "";
+  openAIChat();
+  await callAI(question, "main");
 }
 
 /* =====================================================
    FLOATING AI CHAT
    ===================================================== */
 
-function openFloatingChat() {
-  const panel = $("floatingChat");
-
-  if (panel) {
-    panel.classList.add("show");
-    panel.style.display = "flex";
-  }
-
-  $("floatingChatInput")?.focus();
-}
-
-function closeFloatingChat() {
-  const panel = $("floatingChat");
-
-  if (panel) {
-    panel.classList.remove("show");
-    panel.style.display = "none";
-  }
-}
+function openFloatingChat() { openAIChat(); }
+function closeFloatingChat() { closeAIChat(); }
 
 /* =====================================================
    SAFE AI MARKDOWN RENDERER
@@ -2793,10 +2788,7 @@ function addChatMessage(
   sender,
   target = "main"
 ) {
-  const container =
-    target === "floating"
-      ? $("floatingChatBody")
-      : $("chatHistory");
+  const container = $("chatHistory");
 
   if (!container) {
     console.warn(
@@ -2901,6 +2893,17 @@ async function callAI(
             recordedStatus,
 
           is_live: live,
+          // Reported commands only; never imply verified physical movement.
+          output_reports_are_commands: true,
+          hardware_outputs: live ? {
+            gas_valve: getField(currentSensor, ["gas_valve", "valve_status", "solenoid_valve"]),
+            valve_latched: getField(currentSensor, ["valve_latched"]),
+            exhaust_fan: getField(currentSensor, ["exhaust_fan", "fan_status"]),
+            buzzer: getField(currentSensor, ["buzzer", "buzzer_status"]),
+            red_led: getField(currentSensor, ["red_led", "red_led_status"]),
+            green_led: getField(currentSensor, ["green_led", "green_led_status"]),
+            voice_alert: getField(currentSensor, ["voice_alert", "voice_status"])
+          } : null,
 
           timestamp:
             currentSensor.created_at
@@ -3001,22 +3004,7 @@ async function sendChat() {
    SEND FLOATING CHAT MESSAGE
    ===================================================== */
 
-async function sendFloatingChat() {
-  const input = $("floatingChatInput");
-
-  if (!input || isAIWorking) return;
-
-  const question = input.value.trim();
-
-  if (!question) return;
-
-  input.value = "";
-
-  await callAI(
-    question,
-    "floating"
-  );
-}
+async function sendFloatingChat() { await sendChat(); }
 
 /* =====================================================
    QUICK AI QUESTIONS
@@ -3050,6 +3038,7 @@ function quickAsk(type) {
    ===================================================== */
 
 function triggerSuggestedAI(question) {
+  if (isAIWorking) return;
   openAIChat();
 
   callAI(
@@ -3071,11 +3060,9 @@ function parseMarkdown(text) {
    ===================================================== */
 
 function setAllButtons(disabled) {
-  document.querySelectorAll(
-    "#ai-panel button, #chatModal button, #floatingChat button"
-  ).forEach(button => {
-    button.disabled = disabled;
-  });
+  document.querySelectorAll("#aiAssistantPanel button, #chatModal .chat-input-group button, #assistantQuestion, #chatInput")
+    .forEach(element => { element.disabled = disabled; });
+  setText("aiRequestStatus", disabled ? "Preparing an explanation..." : "");
 }
 
 /* =====================================================
@@ -3128,6 +3115,15 @@ function initializeKeyboardEvents() {
   document.addEventListener(
     "keydown",
     event => {
+      const modal = getAIModal();
+      if (event.key === "Tab" && modal?.classList.contains("show")) {
+        const controls = [...modal.querySelectorAll('button:not([disabled]), input:not([disabled]), a[href]')]
+          .filter(element => element.getClientRects().length);
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) { event.preventDefault(); first?.focus(); }
+      }
       if (event.key === "Escape") {
         closeAI();
         closeFloatingChat();
