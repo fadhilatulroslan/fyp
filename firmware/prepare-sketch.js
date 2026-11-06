@@ -59,7 +59,8 @@ if (typeof document !== 'undefined') {
     input.disabled = true; prepare.disabled = true; tell('Preparing the complete sketch in this browser...');
     try {
       const working = await file.text();
-      const url = new URL('GLiPS/GLiPS.ino', window.location.href);
+      const currentDevice = new URLSearchParams(window.location.search).get('version') === 'current';
+      const url = new URL(currentDevice ? 'current-device/GLiPS.ino' : 'GLiPS/GLiPS.ino', window.location.href);
       url.searchParams.set('v', String(Date.now()));
       const response = await fetch(url, {cache: 'no-store'});
       if (!response.ok) throw new Error('The public template could not be loaded. Try again after deployment finishes.');

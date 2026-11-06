@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Prepare complete ESP sketch | GLiPS</title>
   <link rel="stylesheet" href="prepare-sketch.css">
-  <script src="prepare-sketch.js" defer></script>
+  <script src="prepare-sketch.js?v=voice-reports-1" defer></script>
 </head>
 <body>
 <main>
@@ -18,7 +18,7 @@
     <h2>1. Choose your working code</h2>
     <label for="workingSketch">Local Arduino sketch (.ino) or pasted text file (.txt)</label>
     <input id="workingSketch" type="file" accept=".ino,.txt,text/plain">
-    <p class="hint">Includes the 300/250 ppm alarm settings, manual valve reset, device reports, camera fixes and the IKM Lumut location.</p>
+    <p class="hint" id="versionHint">Default version includes the 300/250 ppm alarm settings, manual valve reset, device reports, camera fixes and the IKM Lumut location. The current-device diagnostic version preserves the selected device template's existing control rules and adds output reports and speaker diagnostics.</p>
     <button id="prepareButton" type="button">Prepare complete code</button>
     <p id="prepareStatus" role="status" aria-live="polite">Choose your working file to begin.</p>
   </section>
