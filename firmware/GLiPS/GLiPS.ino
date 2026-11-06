@@ -26,10 +26,10 @@ const char* WIFI_PASS = "";
 const char* BOT_TOKEN = "";
 const char* CHAT_ID = "";
 
-// Fixed installation location. Fill locally; no GPS is inferred from Wi-Fi.
-const char* SITE_NAME = "";
+// Fixed installation location supplied by the user; not a live GPS position.
+const char* SITE_NAME = "IKM Lumut";
 const char* SITE_ADDRESS = "";
-const char* SITE_MAP_URL = "";  // A verified HTTPS Google Maps pin/share link.
+const char* SITE_MAP_URL = "https://maps.app.goo.gl/AqbbRXZjT2Hft84j9";  // User-supplied pin/share link.
 const double SITE_LATITUDE = NAN;
 const double SITE_LONGITUDE = NAN;
 

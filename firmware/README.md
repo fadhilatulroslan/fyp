@@ -88,9 +88,11 @@ and Quick Tunnel reachability still require validation on the user's equipment.
 ## Fixed-site location in the same Telegram danger message
 
 v4.1 adds SITE_NAME, SITE_ADDRESS, SITE_MAP_URL, SITE_LATITUDE and SITE_LONGITUDE
-near the local bot settings. They are intentionally empty/NAN in the public
-sketch. Configure the actual installation location locally before uploading.
-No location is obtained from Wi-Fi or inferred as GPS.
+near the local bot settings. SITE_NAME is configured to IKM Lumut and
+SITE_MAP_URL uses the user-supplied link https://maps.app.goo.gl/AqbbRXZjT2Hft84j9.
+The link destination has not been independently verified. Address is blank and
+coordinates remain NAN; no address or coordinates were inferred. Confirm the pin
+on the user's phone before uploading. No location is obtained from Wi-Fi or GPS.
 
 - Recommended: set SITE_NAME and SITE_MAP_URL to the verified HTTPS Google Maps
   share/pin link for the installation. SITE_ADDRESS is optional readable text.
