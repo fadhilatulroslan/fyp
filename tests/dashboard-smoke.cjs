@@ -39,20 +39,23 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     await page.route('https://include-soviet-iowa-mere.trycloudflare.com/stream*', r=>r.fulfill({contentType:'image/png',path:path.join(repo,'esp.png')}));
     await page.goto(base+'/dashboard.html',{waitUntil:'networkidle'});
     await page.waitForFunction(()=>!isLoading && databaseConnected && historyLoadedFromServer);
-    const text=id=>page.locator('#'+id).innerText();
-    assert.equal(await text('heroStatus'),'SYSTEM SAFE');
+    const text=async id=>(await page.locator('#'+id).textContent()).trim();
+    assert.equal(await text('heroStatus'),'Gas level is normal');
+    assert.equal(await page.locator('#heroStatus').isVisible(),true);assert.equal(await page.locator('#responseHeadline').isVisible(),true);assert.equal(await page.locator('#manualAlertButton').isVisible(),false);
     assert.equal(await text('quickSupabase'),'Connected');
     assert.match(await text('quickUpdate'),/ago/);
     assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),1);
     assert.equal(await page.evaluate(()=>currentChartPeriod),10);
     assert.equal(await page.locator('#chartEmptyState').isVisible(),false);
     assert.equal(await text('gasValveStatus'),'CLOSED');
+    assert.equal(await text('gasBadge'),'SAFE');assert.equal(await text('tempBadge'),'Live');
     // Every inline button/change handler must have an existing global function.
     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('[onclick],[onchange]')].flatMap(el=>[el.getAttribute('onclick'),el.getAttribute('onchange')]).filter(Boolean).flatMap(code=>[...code.matchAll(/\b([A-Za-z_$][\w$]*)\(/g)].map(m=>m[1])).filter(name=>!['stopPropagation','if'].includes(name)&&typeof window[name]!=='function')),[]);
     assert.equal(await page.locator('.hardware-grid > .hardware-card').count(),3);
     assert.equal(await page.locator('#quickWiFi,#quickDHT,#quickTelegram,#voiceAlertStatus,.connectivity-grid').count(),0);
     assert.equal(await page.locator('.connection-strip .connection-item').count(),3);
     assert.equal(await text('quickESP32'),'Online');
+    assert.equal(await text('responseValve'),'Valve command reported');
     console.log('PASS live data, connectivity, hardware, chart defaults, inline handlers');
     rows=[{...row(100,45),gas_valve:undefined,exhaust_fan:undefined,wifi_connected:undefined,hardware_outputs:{kind:'output_commands',gas_valve:'RELAY HIGH',exhaust_fan:'ON',buzzer:'ON',red_led:'ON',green_led:'OFF',voice_alert:'PLAY REQUESTED',wifi_connected:true}}];
     await page.evaluate(()=>manualRefresh());
@@ -60,13 +63,20 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await text('exhaustFanStatus'),'ON');assert.equal(await text('alarmStatus'),'Active');
     assert.match(await page.locator('#dotGasValve').getAttribute('class'),/active/);
     if (process.env.GLIPS_SCREENSHOT_DIR) {
+      await page.evaluate(()=>openDeviceDetails());
       await page.locator('.hardware-grid').screenshot({path:path.join(process.env.GLIPS_SCREENSHOT_DIR,'glips-safety-response.png')});
       await page.locator('.connection-strip').screenshot({path:path.join(process.env.GLIPS_SCREENSHOT_DIR,'glips-connections.png')});
     }
     rows=[{...rows[0],id:103,status:'SAFE',gas_ppm:80,hardware_outputs:{gas_valve:'RELAY HIGH',valve_latched:true,buzzer:'OFF',red_led:'OFF',green_led:'ON'}}];await page.evaluate(()=>manualRefresh());
-    assert.equal(await text('heroStatus'),'SYSTEM SAFE');assert.equal(await text('gasValveStatus'),'Latched');
+    assert.equal(await text('heroStatus'),'Gas level has dropped');assert.equal(await text('gasValveStatus'),'Latched');
+    assert.equal(await text('responseHeadline'),'Manual valve reset required');
+    assert.match(await text('responseNextStep'),/checked before an operator resets/);
+    assert.equal(await text('responseValve'),'Shut-off requested');
     assert.match(await text('gasValveDetail'),/manual reset required/);assert.match(await text('valveResetStatus'),/required/);
     assert.equal(await text('alarmStatus'),'Inactive');
+    rows=[{...rows[0],id:104,hardware_outputs:{gas_valve:'RELAY LOW',valve_latched:false,buzzer:'OFF',red_led:'OFF',green_led:'ON'}}];await page.evaluate(()=>manualRefresh());
+    assert.equal(await text('responseValve'),'Normal valve command reported');
+    assert.match(await page.locator('#eventLog').innerText(),/Valve reset reported/);
     rows=[{...rows[0],id:102,hardware_outputs:{buzzer:'OFF',red_led:'OFF',green_led:'ON'}}];await page.evaluate(()=>manualRefresh());
     assert.equal(await text('alarmStatus'),'Inactive');
     rows=[{...rows[0],id:101,hardware_outputs:{buzzer:'ON'}}];await page.evaluate(()=>manualRefresh());
@@ -76,7 +86,7 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await page.locator('#dotAlarm').evaluate(el=>el.classList.contains('active')),false);
     console.log('PASS ESP nested output commands, expanded details, reporting indicators, missing fields');
 
-    for (const [id,gas,status] of [[2,200,'WARNING'],[3,350,'DANGER DETECTED'],[4,80,'SYSTEM SAFE']]) {
+    for (const [id,gas,status] of [[2,200,'Gas level is rising'],[3,350,'Gas leak warning'],[4,80,'Gas level is normal']]) {
       rows=[row(id,gas),...rows];await page.evaluate(()=>manualRefresh());assert.equal(await text('heroStatus'),status);
     }
     assert.equal(await page.locator('#alertTableBody .danger').count(),1);assert.equal(await page.locator('#alertTableBody .warning').count(),1);
@@ -85,29 +95,34 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     await page.evaluate(()=>{window.__printed=false;window.open=()=>({document:{write(){},close(){}},focus(){},print(){window.__printed=true}});printAlerts()});
     assert.equal(await page.evaluate(()=>window.__printed),true);
     console.log('PASS safe/warning/danger/recovery, live history, export, print');
+    rows=[row(250,80),row(249,70,60000)];await page.evaluate(()=>manualRefresh());
+    assert.equal(await page.evaluate(()=>sensorChart.data.datasets[0].data.includes(null)),true);
+    assert.equal(await page.evaluate(()=>sensorChart.options.spanGaps || sensorChart.data.datasets[0].spanGaps),false);
     rows=[row(5,70,25000)];await page.evaluate(()=>manualRefresh());
     assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),0);assert.match(await text('chartEmptyState'),/ESP32 offline/);
     await page.locator('.chart-btn[data-period="50"]').click();assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),0);
+    assert.equal(await text('responseHeadline'),'Device response is unknown');assert.equal(await text('heroGas'),'--');
+    assert.equal(await text('gasBadge'),'Not live');assert.equal(await page.locator('#gasBarFill').evaluate(el=>el.style.width),'0%');
     assert.equal(await text('gasValveStatus'),'Unknown — ESP offline');assert.equal(await text('alarmStatus'),'Unknown — ESP offline');
-    fail=true;await page.evaluate(()=>manualRefresh());assert.equal(await text('quickSupabase'),'Disconnected');assert.equal(await text('heroStatus'),'DATABASE DISCONNECTED');assert.match(await text('chartEmptyState'),/Database unavailable/);
+    fail=true;await page.evaluate(()=>manualRefresh());assert.equal(await text('quickSupabase'),'Disconnected');assert.equal(await text('heroStatus'),'Monitoring connection lost');assert.match(await text('chartEmptyState'),/Database unavailable/);
     fail=false;rows=[];await page.evaluate(()=>manualRefresh());assert.match(await text('chartEmptyState'),/No sensor data/);
     rows=[{...row(55,0),status:'SENSOR ERROR'}];await page.evaluate(()=>manualRefresh());
-    assert.equal(await text('heroStatus'),'SENSOR ERROR');assert.equal(await text('gasPpm'),'--');
+    assert.equal(await text('heroStatus'),'Gas sensor needs attention');assert.equal(await text('gasPpm'),'--');
     assert.match(await text('quickESP32'),/Online/);assert.match(await text('chartEmptyState'),/Sensor error/);
     assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),0);
     assert.equal(await page.evaluate(()=>getGasStatus(getSensorGas(currentSensor))),'UNKNOWN');
     console.log('PASS firmware SENSOR ERROR with zero ppm is never SAFE or a plotted measurement');
-    rows=[row(6,40)];await page.evaluate(()=>manualRefresh());assert.equal(await text('heroStatus'),'SYSTEM SAFE');
+    rows=[row(6,40)];await page.evaluate(()=>manualRefresh());assert.equal(await text('heroStatus'),'Gas level is normal');
     // Staleness timer must work without waiting for a successful database response.
     await page.clock.install();await page.evaluate(()=>{clearInterval(refreshTimer);clearInterval(countdownTimer);currentSensor.created_at=new Date(Date.now()-19000).toISOString();startRefreshTimers();clearInterval(refreshTimer)});
-    await page.clock.fastForward(2001);assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),0);assert.equal(await text('heroStatus'),'ESP32 NOT REPORTING');
+    await page.clock.fastForward(2001);assert.equal(await page.evaluate(()=>sensorChart.data.labels.length),0);assert.equal(await text('heroStatus'),'Gas readings are unavailable');
     console.log('PASS offline, period switch, database outage, empty results, reconnect, expiry timer');
     await page.clock.resume();rows=[row(7,50)];await page.evaluate(()=>manualRefresh());
     await page.evaluate(()=>{sb.auth.getSession=async()=>({data:{session:{access_token:'test-only'}},error:null})});
     await page.evaluate(()=>callAI('Explain reading','main'));assert.match(await page.locator('#chatHistory').innerText(),/Live response/);assert.equal(await page.locator('#chatHistory script').count(),0);
     aiFail=true;await page.evaluate(()=>callAI('Try again','floating'));assert.match(await page.locator('#floatingChatBody').innerText(),/Simulated AI failure/);assert.equal(await page.evaluate(()=>isAIWorking),false);
     await page.evaluate(()=>sendTelegramAlert());assert.equal(telegramCalls,0);
-    await page.evaluate(()=>{CONFIG.telegramAlertEndpoint=CONFIG.supabaseUrl+'/functions/v1/test-telegram'});await page.evaluate(()=>Promise.all([sendTelegramAlert(),sendTelegramAlert()]));assert.equal(telegramCalls,1);assert.match(await page.locator('.glips-toast').innerText(),/Telegram alert sent/);
+    await page.evaluate(()=>{CONFIG.telegramAlertEndpoint=CONFIG.supabaseUrl+'/functions/v1/test-telegram'});await page.evaluate(()=>Promise.all([sendTelegramAlert(),sendTelegramAlert()]));assert.equal(telegramCalls,1);assert.match(await page.locator('.glips-toast').innerText(),/Manual alert request accepted/);
     console.log('PASS simulated AI response/error, escaped content, Telegram config and duplicate-send guard');
     await page.locator('.camera-settings summary').click();
     await page.locator('#cameraStreamUrlInput').fill('https://include-soviet-iowa-mere.trycloudflare.com');
@@ -124,6 +139,7 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await page.locator('#captureBtn,#sendPhotoBtn').count(),0);
     await page.locator('#soundBtn').click();assert.equal(await page.locator('#soundBtn').getAttribute('aria-pressed'),'false');
     await page.evaluate(()=>openAIChat());await page.keyboard.press('Escape');assert.equal(await page.locator('#chatModal').isVisible(),false);
+    await page.getByRole('button',{name:'Help with readings'}).click();assert.equal(await page.locator('#floatingChat').isVisible(),true);await page.locator('.floating-chat-close').click();assert.equal(await page.locator('#floatingChat').isVisible(),false);
     await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth <= window.innerWidth),true);
     console.log('PASS camera start/stop/failure, sound, modal close, mobile width');
     await page.evaluate(()=>{sb.auth.signOut=async()=>({error:null})});page.once('dialog',d=>d.accept());await page.evaluate(()=>logout());await page.waitForURL('**/index.html');
@@ -145,6 +161,11 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     assert.equal(await page.evaluate(()=>getReadingStatus({gas_ppm:300,status:'SAFE'})),'DANGER');
     await page.evaluate(()=>{alertHistory=[{id:10,created_at:'2026-10-31T17:00:00Z',status:'WARNING',gas_ppm:150},{id:11,created_at:'2026-09-01T00:00:00Z',status:'DANGER',gas_ppm:400}];updateMonthFilter();document.getElementById('monthFilter').value='2026-11';filterAlertsByMonth()});
     assert.equal(await page.locator('#alertTableBody tr').count(),1);assert.match(await page.locator('#alertTableBody').innerText(),/WARNING/);
+    await page.evaluate(()=>{document.getElementById('monthFilter').value='all';document.getElementById('historyFrom').value='2026-11-01';document.getElementById('historyTo').value='2026-11-01';document.getElementById('historyStatus').value='WARNING';filterAlertsByMonth()});
+    assert.equal(await page.locator('#alertTableBody tr').count(),1);assert.match(await page.locator('#alertTableBody').innerText(),/WARNING/);
+    await page.evaluate(()=>{document.getElementById('historyTo').value='2026-10-01';filterAlertsByMonth()});assert.equal(await page.locator('#historyFilterError').isVisible(),true);
+    await page.evaluate(()=>resetHistoryFilters());assert.equal(await page.locator('#historyFilterError').isVisible(),false);assert.equal(await page.locator('#alertTableBody tr').count(),2);
+    await page.evaluate(()=>openDeviceDetails());
     const hardware=page.locator('[onclick="toggleHardware(this)"]').first();await hardware.click();assert.match(await hardware.getAttribute('class'),/expanded/);
     const alarmCard=page.locator('.hardware-card').filter({has:page.locator('#alarmStatus')});await alarmCard.focus();await page.keyboard.press('Enter');assert.equal(await alarmCard.getAttribute('aria-expanded'),'true');
     await page.clock.install();await page.route('https://include-soviet-iowa-mere.trycloudflare.com/stream*',()=>{});await page.locator('#cameraToggleBtn').click();await page.clock.fastForward(15001);assert.equal(await text('cameraStatusText'),'Connection timed out');

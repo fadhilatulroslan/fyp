@@ -111,3 +111,25 @@ local RESET_VALVE serial command are required to release it. The dashboard reads
 hardware_outputs.valve_latched and can show SAFE gas alongside a Latched valve.
 No physical valve position is inferred. See firmware/README.md for test limits,
 storage handling, upload steps, and manual reset instructions.
+
+## Operator-first layout
+
+The main screen explains the current gas condition and next action using plain
+English. A separate response panel describes reported shut-off, ventilation and
+alarm commands; it never claims a physical valve has closed. SAFE readings can
+coexist with a manual-reset requirement. Missing, stale, faulty and disconnected
+readings remain distinguishable; the main reading is hidden while unavailable.
+
+Technical device reports, thresholds and optional AI explanations remain in
+expandable panels. Help in the header opens chat without a fake unread badge.
+Unsupported manual alert controls stay hidden when no backend is configured.
+
+The gas chart inserts null points across reporting gaps over 20 seconds. History
+supports Malaysia date boundaries, status, optional month filtering and clear
+filters; exports and printing share the exact filtered rows. Reversed dates show
+an inline error. Recent activity records observed connection and reported latch
+changes, including a reported valve reset. It does not invent automatic Telegram
+delivery confirmations or physical feedback, and is limited to the current page
+session. Camera failure offers Retry connection, and HTTPS camera settings persist
+on that browser. This redesign does not modify the firmware or establish live
+hardware/backend readiness.

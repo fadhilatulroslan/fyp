@@ -79,6 +79,8 @@ let historyLoading = false;
 let historyLoadedFromServer = false;
 let historySensorRows = [];
 let systemEvents = [];
+let observedValveLatch = null;
+let observedConnection = null;
 let aiConversation = [];
 
 let currentChartPeriod = 10;
@@ -107,7 +109,7 @@ function setText(id, value) {
   const element = $(id);
 
   if (element) {
-    element.textContent = value;
+    if (element.textContent !== String(value)) element.textContent = value;
   }
 }
 
@@ -821,23 +823,23 @@ function updateHeroValues(record) {
 function updateHeroAlert(record, status) {
   const messages = {
     SAFE: {
-      title: "SYSTEM SAFE",
+      title: "Gas level is normal",
       description:
-        "ESP32 reports SAFE according to its configured gas thresholds.",
+        "Monitoring is active. Continue your normal safety checks.",
       icon: "ti ti-shield-check"
     },
 
     WARNING: {
-      title: "WARNING",
+      title: "Gas level is rising",
       description:
-        "Elevated LPG reading detected. Check the area.",
+        "Keep clear of suspected leaks and ask the operator to check the area.",
       icon: "ti ti-alert-triangle"
     },
 
     DANGER: {
-      title: "DANGER DETECTED",
+      title: "Gas leak warning",
       description:
-        "High LPG reading detected. Follow emergency safety procedures.",
+        "Leave the affected area and follow your site emergency procedures. Do not assume the gas supply is shut off.",
       icon: "ti ti-alert-octagon"
     }
   };
@@ -861,8 +863,12 @@ function updateHeroAlert(record, status) {
     );
   }
 
-  setText("heroStatus", content.title);
-  setText("heroMessage", content.description);
+  const latched = getField(record, ["valve_latched"]) === true;
+  setText("heroStateLabel", status === "SAFE" ? "Normal" : status === "WARNING" ? "Warning" : "Danger");
+  setText("heroReadingNote", "Current sensor reading");
+  setText("heroStatus", status === "SAFE" && latched ? "Gas level has dropped" : content.title);
+  setText("heroMessage", status === "SAFE" && latched
+    ? "The gas reading has dropped. Manual valve reset is still required before normal operation resumes." : content.description);
 
   updateHeroValues(record);
 
@@ -926,6 +932,24 @@ function updateSensorCards(
       ? "DHT22 temperature unavailable"
       : `${isLive ? "Live" : "Last recorded"} temperature: ${temp.toFixed(1)}°C`
   );
+
+  const gasBadge = $("gasBadge");
+  if (gasBadge) {
+    gasBadge.textContent = isLive ? status : "Not live";
+    gasBadge.className = `sensor-badge-status ${isLive ? status.toLowerCase() : "offline"}`;
+  }
+  const tempBadge = $("tempBadge");
+  if (tempBadge) {
+    tempBadge.textContent = temp === null ? "Not available" : isLive ? "Live" : "Last recorded";
+    tempBadge.className = `sensor-badge-status ${isLive && temp !== null ? "info" : "offline"}`;
+  }
+  const bar = $("gasBarFill");
+  if (bar) {
+    bar.style.width = isLive && ppm !== null ? `${Math.max(0, Math.min(100, ppm / 500 * 100))}%` : "0%";
+    bar.style.backgroundColor = isLive ? getStatusColor(status) : "#94a3b8";
+    bar.parentElement?.setAttribute("role", "img");
+    bar.parentElement?.setAttribute("aria-label", isLive ? `Gas reading ${formatNumber(ppm)} ppm, ${status}` : "No live gas reading");
+  }
 
   const card = $("systemStatus");
 
@@ -1084,6 +1108,63 @@ function updateHardware(record) {
     badge.classList.add(!reported ? "offline" : alarmActive ? "closed" : reported < 3 ? "offline" : "off");
   }
   $("dotAlarm")?.classList.toggle("active", reported > 0);
+  updateResponseSummary(record, Boolean(fresh));
+}
+
+function updateResponseSummary(record, fresh) {
+  const panel = $("responseSummary");
+  if (!panel) return;
+  panel.classList.remove("attention", "unavailable");
+  if (!fresh) {
+    panel.classList.add("unavailable");
+    setText("responseHeadline", "Device response is unknown");
+    setText("responseNextStep", "Current gas levels and device actions cannot be confirmed. Check the monitoring device and connection.");
+    ["responseValve", "responseFan", "responseAlarm"].forEach(id => setText(id, "Current status unknown"));
+    return;
+  }
+  const state = getReadingStatus(record);
+  const latch = getField(record, ["valve_latched"]);
+  const valve = normalizeState(getField(record, HARDWARE_DEVICES[0].fields));
+  const fan = normalizeState(getField(record, HARDWARE_DEVICES[1].fields));
+  const buzzer = normalizeState(getField(record, ["buzzer", "buzzer_status"]));
+  const red = normalizeState(getField(record, ["red_led", "red_led_status"]));
+  const on = value => ["ON", "ACTIVE", "TRUE", "1"].includes(value);
+  const off = value => ["OFF", "INACTIVE", "FALSE", "0"].includes(value);
+  setText("responseValve", latch === true ? "Shut-off requested"
+    : valve === "UNKNOWN" ? "Status not received" : latch === false ? "Normal valve command reported" : "Valve command reported");
+  setText("responseFan", on(fan) ? "Ventilation requested" : off(fan) ? "Ventilation not requested" : "Status not received");
+  setText("responseAlarm", on(buzzer) ? "Sound alarm requested" : on(red) ? "Warning light reported"
+    : off(buzzer) && off(red) ? "No alarm requested" : "Status not received");
+  if (latch === true) {
+    panel.classList.add("attention");
+    setText("responseHeadline", "Manual valve reset required");
+    setText("responseNextStep", state === "SAFE"
+      ? "Gas level has dropped. The shut-off request is still active. Have the area checked before an operator resets the valve locally."
+      : "Keep clear of the affected area. The shut-off request is still active. Do not reset the valve while gas levels are elevated.");
+  } else if (state === "DANGER") {
+    panel.classList.add("attention");
+    setText("responseHeadline", "Follow emergency procedures");
+    setText("responseNextStep", "Gas supply shut-off is not confirmed. Leave the affected area and follow your site emergency procedures.");
+  } else {
+    const anyReport = valve !== "UNKNOWN" || fan !== "UNKNOWN" || buzzer !== "UNKNOWN";
+    setText("responseHeadline", anyReport ? "Latest device reports" : "Waiting for device reports");
+    setText("responseNextStep", anyReport
+      ? "These are commands reported by the monitoring device. Physical operation has not been confirmed."
+      : "Gas readings are available, but device actions have not been reported. Ask the operator to check the monitoring device.");
+  }
+  if (typeof latch === "boolean") {
+    if (latch && observedValveLatch !== true) addEvent("warning", "Gas shut-off request reported. An operator must reset it manually.");
+    if (!latch && observedValveLatch === true) addEvent("info", "Valve reset reported by the monitoring device.");
+    observedValveLatch = latch;
+  }
+}
+
+function openDeviceDetails() {
+  const details = $("deviceReports");
+  if (!details) return;
+  details.open = true;
+  details.scrollIntoView({behavior: "smooth", block: "start"});
+  details.querySelector("summary")?.focus();
 }
 
 /* =====================================================
@@ -1111,6 +1192,13 @@ function updateConnectivity(record) {
   $("quickESP32")?.classList.toggle("offline", Boolean(databaseConnected && record && !recent));
   $("quickSupabase")?.classList.toggle("online", databaseConnected);
   $("quickSupabase")?.classList.toggle("offline", !databaseConnected);
+  const connection = !databaseConnected ? "service-unavailable" : recent ? "online" : "sensor-unavailable";
+  if (connection !== observedConnection) {
+    if (observedConnection !== null && connection === "service-unavailable") addEvent("warning", "Connection to the monitoring service was lost. Current gas level is unknown.");
+    if (connection === "online") addEvent("info", observedConnection === null ? "Live gas readings received." : "Live gas readings resumed.");
+    if (connection === "sensor-unavailable" && observedConnection === "online") addEvent("warning", "The gas sensor stopped reporting. Current gas level is unknown.");
+    observedConnection = connection;
+  }
   updateLastSeen();
 }
 
@@ -1151,7 +1239,8 @@ function initializeChart() {
 
         datasets: [
           {
-            label: "LPG (ppm)",
+            label: "Gas level (ppm)",
+            spanGaps: false,
             data: [],
             borderColor: "#2563eb",
             backgroundColor:
@@ -1252,9 +1341,16 @@ function updateChart(records = allSensors) {
     ? records
     : [];
 
-  const selected = liveRecords
-    .slice(0, currentChartPeriod)
-    .reverse();
+  const selected = [];
+  liveRecords.slice(0, currentChartPeriod).reverse().forEach(row => {
+    const previous = selected[selected.length - 1];
+    const timestamp = new Date(row.created_at).getTime();
+    const previousTime = previous ? new Date(previous.created_at).getTime() : timestamp;
+    if (timestamp - previousTime > CONFIG.staleAfterMs) {
+      selected.push({created_at: new Date(previousTime + 1).toISOString(), gas_ppm: null});
+    }
+    selected.push(row);
+  });
 
   sensorChart.data.labels = selected.map(
     row => formatTimeOnly(row.created_at)
@@ -1405,23 +1501,28 @@ function updateMonthFilter() {
    ===================================================== */
 
 function getFilteredAlerts() {
-  const selected =
-    $("monthFilter")?.value || "all";
-
-  if (selected === "all") {
-    return alertHistory;
-  }
-
+  const month = $("monthFilter")?.value || "all";
+  const status = $("historyStatus")?.value || "all";
+  const from = $("historyFrom")?.value || "";
+  const to = $("historyTo")?.value || "";
+  const error = $("historyFilterError");
+  const invalid = from && to && from > to;
+  if (error) { error.hidden = !invalid; error.textContent = invalid ? "Choose an end date on or after the start date." : ""; }
+  if (invalid) return [];
+  const start = from ? new Date(`${from}T00:00:00+08:00`).getTime() : -Infinity;
+  const end = to ? new Date(`${to}T00:00:00+08:00`).getTime() + 86400000 : Infinity;
   return alertHistory.filter(alert => {
-    const date = new Date(
-      alert.created_at
-    );
-
-    const month =
-      getMonthKey(date);
-
-    return month === selected;
+    const date = new Date(alert.created_at);
+    return Number.isFinite(date.getTime()) && date.getTime() >= start && date.getTime() < end
+      && (month === "all" || getMonthKey(date) === month)
+      && (status === "all" || alert.status === status);
   });
+}
+
+function resetHistoryFilters() {
+  ["historyFrom", "historyTo"].forEach(id => { if ($(id)) $(id).value = ""; });
+  ["monthFilter", "historyStatus"].forEach(id => { if ($(id)) $(id).value = "all"; });
+  filterAlertsByMonth();
 }
 
 /* =====================================================
@@ -1445,7 +1546,7 @@ function filterAlertsByMonth() {
           <td>${escapeHTML(formatNumber(alert.gas_ppm))} ppm</td>
           <td><span class="status-badge ${escapeHTML(alert.status.toLowerCase())}">${escapeHTML(alert.status)}</span></td>
         </tr>`).join("")
-      : '<tr><td colspan="4">No alert records found for this month.</td></tr>';
+      : '<tr><td colspan="4">No records match your filters.</td></tr>';
   }
   if (list) {
     list.innerHTML = alerts.length
@@ -1453,7 +1554,7 @@ function filterAlertsByMonth() {
           <div><strong>${escapeHTML(alert.status)}</strong><div>${escapeHTML(formatTime(alert.created_at))}</div></div>
           <strong>${escapeHTML(formatNumber(alert.gas_ppm))} ppm</strong>
         </div>`).join("")
-      : '<div class="event-empty">No alert records found for this month.</div>';
+      : '<div class="event-empty">No records match your filters.</div>';
   }
 }
 
@@ -2065,7 +2166,7 @@ function saveCameraSettings() {
     stopCamera();
     CAMERA.stream = url;
     $("cameraStreamUrlInput").value = url;
-    showToast("Camera URL saved on this browser. Select Start Live Monitoring.", "success");
+    showToast("Camera URL saved on this browser. Select Connect camera.", "success");
   } catch (error) {
     showToast(`Camera URL not saved: ${error.message}`, "warning", 6000);
   }
@@ -2136,7 +2237,7 @@ async function toggleCamera() {
 
     if (button) {
       button.innerHTML =
-        '<i class="ti ti-camera-off"></i> Stop Live Monitoring';
+        '<i class="ti ti-camera-off"></i> Disconnect camera';
     }
 
 
@@ -2186,14 +2287,12 @@ function stopCamera(label = "Offline") {
 
   if ($("cameraToggleBtn")) {
     $("cameraToggleBtn").innerHTML =
-      '<i class="ti ti-camera"></i> Start Live Monitoring';
+      '<i class="ti ti-camera"></i> Connect camera';
   }
 
 
-  cameraStatus(
-    false,
-    label
-  );
+  cameraStatus(false, label);
+  if (label !== "Offline" && $("cameraToggleBtn")) $("cameraToggleBtn").innerHTML = '<i class="ti ti-refresh"></i> Retry connection';
 }
 
 /* =====================================================
@@ -2315,13 +2414,13 @@ async function sendTelegramAlert() {
     if ($("quickTelegram")) $("quickTelegram").dataset.checked = "true";
     setText("quickTelegram", "Last send succeeded");
     showToast(
-      "Telegram alert sent.",
+      "Manual alert request accepted.",
       "success"
     );
 
     addEvent(
       "info",
-      "Manual Telegram alert sent."
+      "Manual alert request accepted by the alert service."
     );
 
   } catch (error) {
@@ -3270,30 +3369,19 @@ const originalShowOffline = showOffline;
 // Bila ESP32 OFFLINE (takde data baru > 20 saat)
 showOffline = function (message) {
   originalShowOffline(message);
-
-  const hasRecord = Boolean(currentSensor);
-
-  setText(
-    "heroStatus",
-    !databaseConnected ? "DATABASE DISCONNECTED" : hasSensorFault(currentSensor) ? "SENSOR ERROR" : hasRecord ? "ESP32 NOT REPORTING" : "MONITORING UNAVAILABLE"
-  );
-
-  setText(
-    "heroMessage",
-    hasRecord
-      ? `${message} Showing last saved reading from ${formatTime(currentSensor.created_at)}. Current safety status is unknown.`
-      : message
-  );
-
-  drawGasGauge(
-    getSensorGas(currentSensor),
-    false // Memaksa gauge tunjuk "LAST RECORDED"
-  );
+  setText("heroStateLabel", "Unavailable");
+  setText("heroStatus", !databaseConnected ? "Monitoring connection lost"
+    : hasSensorFault(currentSensor) ? "Gas sensor needs attention" : "Gas readings are unavailable");
+  setText("heroMessage", "The current gas level is unknown. Check the monitoring device and connection; follow your site procedures if a leak is suspected.");
+  setText("heroReadingNote", currentSensor ? "Last received values are in sensor details" : "No reading received");
+  ["heroGas", "heroTemp", "heroHumid", "heroTime"].forEach(id => setText(id, "--"));
+  drawGasGauge(getSensorGas(currentSensor), false);
 };
 
 // Initialize UI fixes
 function initializeGLiPSUIFixes() {
   initializeCameraSettings();
+  if ($("manualAlertButton")) $("manualAlertButton").hidden = !CONFIG.telegramAlertEndpoint;
   updateSoundButton();
 
   drawGasGauge(
