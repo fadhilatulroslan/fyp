@@ -13,9 +13,10 @@
 #include <math.h>
 #include <time.h>
 #include <Preferences.h>
+#include "esp_timer.h"
 
 // ==========================================
-// GLiPS ESP32-S3 - FULL SYSTEM 
+// GLiPS ESP32-S3 - FULL SYSTEM
 // TVETMARA LUMUT (WARNING & DANGER)
 // ==========================================
 
@@ -38,16 +39,16 @@ const char* SUPABASE_KEY = "";
 const char* SUPABASE_TABLE = "sensor_data";
 
 // ===== TEST MODE =====
-#define DEMO_MODE false 
+#define DEMO_MODE false
 
 const unsigned long SENSOR_INTERVAL = 2000;
-const unsigned long ALERT_RETRY = 20000; 
+const unsigned long ALERT_RETRY = 20000;
 const unsigned long DB_INTERVAL = 5000;
 
 // ===== THRESHOLD (WARNING & DANGER) =====
-const float GAS_WARNING_PPM = 150.0; 
-const float GAS_DANGER_PPM  = 300.0; 
-const float GAS_SAFE_PPM    = 100.0; 
+const float GAS_WARNING_PPM = 150.0;
+const float GAS_DANGER_PPM  = 300.0;
+const float GAS_SAFE_PPM    = 100.0;
 
 // ===== ESP32-S3 PINS =====
 #define MQ6_PIN 1
@@ -110,6 +111,7 @@ enum AlertState { STATE_SAFE, STATE_WARNING, STATE_DANGER };
 AlertState currentState = STATE_SAFE;
 
 bool sensorValid = false;
+volatile bool hasSensorSample = false;
 bool cameraReady = false;
 bool dfReady = false;
 bool voicePlaybackRequested = false;
@@ -169,22 +171,44 @@ void updateValveRelay() {
 #else
   digitalWrite(RELAY_VALVE, VALVE_RELAY_SAFE);
 #endif
+  static int lastLevel = -1;
+  int level = digitalRead(RELAY_VALVE);
+  if (lastLevel != level) {
+    lastLevel = level;
+    Serial.printf("VALVE: GPIO %d command %s; check relay and external valve power\n", RELAY_VALVE, level == HIGH ? "HIGH" : "LOW");
+  }
+}
+
+// Timer-driven indicators keep blinking even during network uploads.
+volatile uint8_t indicatorMode = 0; // 0 starting/fault, 1 safe, 2 warning, 3 danger
+esp_timer_handle_t indicatorTimer = nullptr;
+
+void refreshIndicators(void*) {
+  const uint8_t mode = indicatorMode;
+  digitalWrite(LED_GREEN, mode == 1 ? HIGH : LOW);
+  const bool red = mode == 3 ? ((millis() / 500) % 2 == 0) : mode == 2 || (mode == 0 && hasSensorSample);
+  digitalWrite(LED_RED, red ? HIGH : LOW);
 }
 
 void updateOutputs() {
-  bool alarm = sensorValid && (currentState == STATE_DANGER);
+  const bool alarm = sensorValid && currentState == STATE_DANGER;
+  indicatorMode = !sensorValid ? 0 : alarm ? 3 : currentState == STATE_WARNING ? 2 : 1;
   if (alarm) {
-    digitalWrite(LED_GREEN, LOW);
-    digitalWrite(LED_RED, HIGH);
     buzzerONFunction();
     digitalWrite(RELAY_FAN, FAN_ON);
   } else {
-    digitalWrite(LED_GREEN, sensorValid ? HIGH : LOW);
-    digitalWrite(LED_RED, sensorValid ? LOW : HIGH);
     buzzerOFFFunction();
     digitalWrite(RELAY_FAN, FAN_OFF);
   }
+  refreshIndicators(nullptr);
   updateValveRelay();
+}
+
+void initializeStartupReading() {
+  currentState = STATE_SAFE;
+  hasSensorSample = DEMO_MODE;
+  sensorValid = DEMO_MODE;
+  gasPPM = DEMO_MODE ? 80.0 : NAN;
 }
 
 // ==========================================
@@ -194,10 +218,10 @@ void updateLCD() {
   static String lastLine1 = "";
   static String lastLine2 = "";
 
-  String statusText = !sensorValid ? "SENSOR ERROR" : 
-                     (currentState == STATE_DANGER ? "DANGER" : 
+  String statusText = !sensorValid ? (hasSensorSample ? "SENSOR ERROR" : "STARTING") :
+                     (currentState == STATE_DANGER ? "DANGER" :
                      (currentState == STATE_WARNING ? "WARNING" : "SAFE"));
-                     
+
   String line1 = "";
   int start = (16 - statusText.length()) / 2;
   if (start < 0) start = 0;
@@ -206,7 +230,7 @@ void updateLCD() {
 
   String gasText = (sensorValid && isfinite(gasPPM)) ? String(gasPPM, 0) : "--";
   String tempText = isfinite(temperature) ? String(temperature, 1) : "--";
-  
+
   String line2 = "G:" + gasText + "ppm T:" + tempText + "C";
   if (line2.length() > 16) line2 = "G:" + gasText + " T:" + tempText + "C";
   if (line2.length() > 16) line2 = line2.substring(0, 16);
@@ -241,8 +265,8 @@ float testSequenceReading(unsigned long elapsed) {
 float readLPGppm() {
   if (DEMO_MODE) return testSequenceReading(millis() - monitoringStartedAt);
   int adcValue = analogRead(MQ6_PIN);
-  float estimatedPPM = (adcValue / 4095.0) * 1000.0; 
-  if (estimatedPPM < 10) estimatedPPM = 10; 
+  float estimatedPPM = (adcValue / 4095.0) * 1000.0;
+  if (estimatedPPM < 10) estimatedPPM = 10;
   return estimatedPPM;
 }
 
@@ -307,10 +331,10 @@ String getTimeText() {
 // SUPABASE
 // ==========================================
 String buildSupabaseJson() {
-  String statusText = !sensorValid ? "SENSOR ERROR" : 
-                     (currentState == STATE_DANGER ? "DANGER" : 
+  String statusText = !sensorValid ? "SENSOR ERROR" :
+                     (currentState == STATE_DANGER ? "DANGER" :
                      (currentState == STATE_WARNING ? "WARNING" : "SAFE"));
-                     
+
   String json = "{";
   json += "\"status\":\"" + statusText + "\",";
   json += "\"gas_ppm\":" + String(sensorValid && isfinite(gasPPM) ? (int)gasPPM : 0) + ",";
@@ -346,7 +370,7 @@ bool sendToSupabase() {
   HTTPClient http;
   String url = String(SUPABASE_URL) + "/rest/v1/" + String(SUPABASE_TABLE);
   if (!http.begin(client, url)) return false;
-  
+
   http.setTimeout(10000);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("apikey", SUPABASE_KEY);
@@ -374,7 +398,7 @@ bool sendTelegramText(const String& message) {
   if (!http.begin(client, url)) return false;
   http.setTimeout(15000);
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-  
+
   String body = "chat_id=" + urlEncode(String(CHAT_ID)) + "&disable_web_page_preview=true&text=" + urlEncode(message);
   int code = http.POST(body);
   Serial.printf("TELEGRAM HTTP: %d\n", code);
@@ -387,15 +411,15 @@ bool sendTelegramLocation(float lat, float lon) {
   WiFiClientSecure client;
   client.setInsecure();
   HTTPClient http;
-  
+
   String url = "https://api.telegram.org/bot" + String(BOT_TOKEN) + "/sendLocation";
   if (!http.begin(client, url)) return false;
-  
+
   http.setTimeout(15000);
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
 
-  String body = "chat_id=" + urlEncode(String(CHAT_ID)) + 
-                "&latitude=" + String(lat, 6) + 
+  String body = "chat_id=" + urlEncode(String(CHAT_ID)) +
+                "&latitude=" + String(lat, 6) +
                 "&longitude=" + String(lon, 6);
 
   int code = http.POST(body);
@@ -663,6 +687,17 @@ void handleVoiceDiagnostics() {
     if (c == '\r' || c == '\n') {
       command[used] = '\0';
       if (!overflow && String(command) == "TEST_VOICE") playAlarm();
+      if (!overflow && String(command) == "TEST_MP3") {
+        if (!dfReady) Serial.println("VOICE: module unavailable");
+        else {
+          dfPlayer.playMp3Folder(1);
+          voicePlaybackRequested = true;
+          Serial.println("VOICE: requested /mp3/0001.mp3; verify file exists");
+        }
+      }
+      if (!overflow && String(command) == "REPORT_OUTPUTS") {
+        Serial.printf("OUTPUTS: valve GPIO %d = %d (danger level %d), fan=%d, buzzer=%d, DF ready=%d\n", RELAY_VALVE, digitalRead(RELAY_VALVE), VALVE_RELAY_DANGER, digitalRead(RELAY_FAN), digitalRead(BUZZER_PIN), (int)dfReady);
+      }
       if (!overflow && String(command) == "REARM_PHOTO") {
         if (!sensorValid || !isfinite(gasPPM) || gasPPM < 0 || gasPPM > GAS_SAFE_PPM || currentState != STATE_SAFE || millis() - lastSensor > SENSOR_INTERVAL * 2)
           Serial.println("PHOTO REARM REJECTED: fresh SAFE reading required");
@@ -698,15 +733,21 @@ void setup() {
   buzzerOFFFunction();
 
   Serial.begin(115200);
-  Serial.println("GLiPS full firmware v3: hardware_outputs + single photo lock");
+  Serial.println("GLiPS full firmware v4: startup green + warning solid + danger blink");
   restorePhotoLock();
   delay(500);
 
   digitalWrite(RELAY_FAN, FAN_OFF); pinMode(RELAY_FAN, OUTPUT);
   digitalWrite(RELAY_VALVE, VALVE_RELAY_SAFE); pinMode(RELAY_VALVE, OUTPUT);
-  
+
   pinMode(LED_GREEN, OUTPUT); pinMode(LED_RED, OUTPUT);
-  digitalWrite(LED_GREEN, LOW); digitalWrite(LED_RED, LOW);
+  initializeStartupReading();
+  updateOutputs();
+  esp_timer_create_args_t indicatorArgs = {};
+  indicatorArgs.callback = &refreshIndicators;
+  indicatorArgs.name = "glips-led";
+  if (esp_timer_create(&indicatorArgs, &indicatorTimer) != ESP_OK || esp_timer_start_periodic(indicatorTimer, 50000) != ESP_OK)
+    Serial.println("LED: timer unavailable; loop fallback active");
 
   pinMode(MQ6_PIN, INPUT);
   analogReadResolution(12);
@@ -722,8 +763,7 @@ void setup() {
   buzzerOFFFunction();
   lcd.clear();
 
-  currentState = STATE_SAFE;
-  sensorValid = false; 
+  initializeStartupReading();
 
   updateOutputs();
   updateLCD();
@@ -754,8 +794,11 @@ void setup() {
   delay(2000);
   dfReady = dfPlayer.begin(dfSerial, true, true);
   if (dfReady) {
+    dfPlayer.outputDevice(DFPLAYER_DEVICE_SD);
+    dfPlayer.enableDAC();
     dfPlayer.volume(30);
-    Serial.println("DFPLAYER READY: track 1 selected by play(1)");
+    delay(300);
+    Serial.println("DFPLAYER READY: SD selected, DAC enabled; play(1) uses first indexed track");
   } else {
     Serial.println("DFPLAYER INIT FAILED: check power, common GND, UART and microSD");
   }
@@ -771,6 +814,7 @@ void setup() {
 // ==========================================
 void loop() {
   handleVoiceDiagnostics();
+  refreshIndicators(nullptr);
   server.handleClient();
   unsigned long now = millis();
   static bool clockConfigured = false;
@@ -789,6 +833,7 @@ void loop() {
     lastSensor = now;
 
     gasPPM = readLPGppm();
+    hasSensorSample = true;
     sensorValid = isfinite(gasPPM);
 
     float t = dht.readTemperature();
@@ -800,7 +845,7 @@ void loop() {
 
     updateOutputs();
     updateLCD();
-    
+
     Serial.printf("GAS ADC: %d | PPM: %.1f | STATE: %d\n", analogRead(MQ6_PIN), gasPPM, currentState);
   }
 
@@ -810,6 +855,6 @@ void loop() {
   }
 
   updateLCD();
-  processTelegramAlerts(); 
+  processTelegramAlerts();
   delay(10);
 }

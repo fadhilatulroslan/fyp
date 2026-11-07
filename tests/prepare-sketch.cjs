@@ -6,7 +6,7 @@ const {spawn} = require('node:child_process');
 const {chromium} = require('playwright');
 const {mergeWorkingSketch} = require('../firmware/prepare-sketch.js');
 const repo = path.resolve(__dirname,'..');
-const template = fs.readFileSync(path.join(repo,'firmware/GLiPS/GLiPS.ino'),'utf8');
+const template = fs.readFileSync(path.join(repo,'firmware/reviewed-legacy/GLiPS.ino'),'utf8');
 const fields = {
   WIFI_SSID:'"TEST local network"', WIFI_PASS:'"TEST-$1-\\\\pass"',
   BOT_TOKEN:'"TEST_private_bot_token"', CHAT_ID:'"TEST_chat_id"', SUPABASE_KEY:'"sb_publishable_TEST_only"'
@@ -20,8 +20,8 @@ const merged = mergeWorkingSketch(template,working);
 const reviewedTemplate = fs.readFileSync(path.join(repo,'firmware/reviewed-legacy/GLiPS.ino'),'utf8');
 const browserMerged = mergeWorkingSketch(reviewedTemplate, working);
 for(const literal of Object.values(fields)) assert(merged.includes(literal),'Private literal was not preserved');
-assert(merged.includes('SITE_NAME = "IKM Lumut"'));
-assert(merged.includes('resetValveLatch()'));
+assert(merged.includes('LOCATION_NAME = "IKM Lumut"'));
+assert(merged.includes('reservePhotoAttempt()'));
 assert.throws(()=>mergeWorkingSketch(template,working.replace('#define RELAY_FAN 40','#define RELAY_FAN 99')),/manual review/i);
 assert.throws(()=>mergeWorkingSketch(template,working.replace('#define DEMO_MODE true','#define DEMO_MODE false')),/manual review/i);
 assert.throws(()=>mergeWorkingSketch(template,working.replace('const float MQ_R0 = NAN;','const float MQ_R0 = 123.0;')),/Calibration/);
