@@ -2754,3 +2754,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .response-summary > .text-button { margin-top: auto; }
 .meter-legend { margin-top: 8px; }
 @media (max-width: 500px) { .overview-layout .hero-alert { padding: 21px; gap: 17px; } .gas-meter { flex-basis: auto; width: 240px; } .meter-readings-row { gap: 17px; } .response-summary > .text-button { margin-top: 3px; } }
+
+/* Official transparent GLiPS emblem. */
+.header .brand-mark { width: 68px; height: 68px; background: transparent; border-radius: 0; }
+.header .brand-mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.loading-logo { display: block; object-fit: contain; margin: 0 auto 12px; }
+@media (max-width: 600px) { .header .brand-mark { width: 55px; height: 55px; } }

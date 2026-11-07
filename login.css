@@ -700,3 +700,9 @@ button,input {
   .film-caption { padding: 11px 14px; font-size: 10px; }
   .film-toggle { min-width: 88px; padding: 8px 10px; font-size: 10px; }
 }
+
+/* Official transparent GLiPS emblem. */
+.identity { gap: 13px; }
+.identity-mark, .transition-mark { width: 72px; height: 72px; border: 0; background: transparent; box-shadow: none; flex-shrink: 0; }
+.identity-mark img, .transition-mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
+@media (max-width: 480px) { .identity-mark { width: 60px; height: 60px; } }
