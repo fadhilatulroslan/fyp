@@ -12,6 +12,7 @@
 #include "esp_http_server.h"
 #include <math.h>
 #include <time.h>
+#include <Preferences.h>
 
 // ==========================================
 // GLiPS ESP32-S3 - FULL SYSTEM 
@@ -117,6 +118,27 @@ bool warningSent = false;
 bool dangerTextSent = false;
 bool dangerPhotoSent = false;
 bool dangerPhotoAttempted = false;
+Preferences photoStore;
+bool photoStoreReady = false;
+
+void restorePhotoLock() {
+  photoStoreReady = photoStore.begin("glips-photo", false);
+  dangerPhotoAttempted = !photoStoreReady || photoStore.getBool("attempted", false);
+  Serial.println(dangerPhotoAttempted ? "PHOTO: locked; use REARM_PHOTO only when SAFE" : "PHOTO: one attempt available");
+}
+
+bool reservePhotoAttempt() {
+  if (dangerPhotoAttempted || !photoStoreReady) return false;
+  // Persist BEFORE upload. A timeout or reboot cannot cause the same photo retry.
+  if (photoStore.putBool("attempted", true) != 1) {
+    photoStoreReady = false;
+    dangerPhotoAttempted = true;
+    Serial.println("PHOTO: storage failure; automatic upload disabled");
+    return false;
+  }
+  dangerPhotoAttempted = true;
+  return true;
+}
 unsigned int warningTextAttempts = 0;
 unsigned int dangerTextAttempts = 0;
 bool alertSafeTiming = false;
@@ -207,7 +229,17 @@ void updateLCD() {
 // ==========================================
 // MQ6 SENSOR
 // ==========================================
+const unsigned long TEST_STAGE_MS = 20000;
+unsigned long monitoringStartedAt = 0;
+
+float testSequenceReading(unsigned long elapsed) {
+  if (elapsed < TEST_STAGE_MS) return 80.0;
+  if (elapsed < TEST_STAGE_MS * 2) return 200.0;
+  return 350.0;
+}
+
 float readLPGppm() {
+  if (DEMO_MODE) return testSequenceReading(millis() - monitoringStartedAt);
   int adcValue = analogRead(MQ6_PIN);
   float estimatedPPM = (adcValue / 4095.0) * 1000.0; 
   if (estimatedPPM < 10) estimatedPPM = 10; 
@@ -503,7 +535,8 @@ void processTelegramAlerts() {
     if (!alertSafeTiming) { alertSafeTiming = true; alertSafeSince = now; }
     if (now - alertSafeSince >= ALERT_REARM_SAFE_MS) {
       warningSent = false; dangerTextSent = false;
-      dangerPhotoSent = false; dangerPhotoAttempted = false;
+      // Photo permission is persistent and is NOT reset by SAFE readings.
+      dangerPhotoSent = false;
       warningTextAttempts = 0; dangerTextAttempts = 0;
       dangerEventTime = ""; lastAlert = 0;
     }
@@ -528,8 +561,7 @@ void processTelegramAlerts() {
   }
   // Text must be acknowledged before the single optional photo attempt.
   // Do not retry an ambiguous photo response: Telegram may already have accepted it.
-  if (dangerTextSent && cameraReady && !dangerPhotoAttempted) {
-    dangerPhotoAttempted = true;
+  if (dangerTextSent && cameraReady && reservePhotoAttempt()) {
     String caption = "GLiPS | IKM Lumut - incident snapshot\nEvent time: " + dangerEventTime;
     caption += "\nGas reading at capture: " + String(gasPPM, 1) + " ppm";
     dangerPhotoSent = sendTelegramPhoto(caption);
@@ -631,6 +663,16 @@ void handleVoiceDiagnostics() {
     if (c == '\r' || c == '\n') {
       command[used] = '\0';
       if (!overflow && String(command) == "TEST_VOICE") playAlarm();
+      if (!overflow && String(command) == "REARM_PHOTO") {
+        if (!sensorValid || !isfinite(gasPPM) || gasPPM < 0 || gasPPM > GAS_SAFE_PPM || currentState != STATE_SAFE || millis() - lastSensor > SENSOR_INTERVAL * 2)
+          Serial.println("PHOTO REARM REJECTED: fresh SAFE reading required");
+        else if (!photoStoreReady || photoStore.putBool("attempted", false) != 1)
+          Serial.println("PHOTO REARM REJECTED: storage unavailable");
+        else {
+          dangerPhotoAttempted = false;
+          Serial.println("PHOTO: one new attempt enabled");
+        }
+      }
       if (!overflow && String(command) == "STOP_VOICE") {
         if (sensorValid && currentState == STATE_DANGER)
           Serial.println("VOICE: stop rejected while DANGER is active");
@@ -656,7 +698,8 @@ void setup() {
   buzzerOFFFunction();
 
   Serial.begin(115200);
-  Serial.println("GLiPS current-device: hardware reports + voice diagnostics + Telegram v2");
+  Serial.println("GLiPS full firmware v3: hardware_outputs + single photo lock");
+  restorePhotoLock();
   delay(500);
 
   digitalWrite(RELAY_FAN, FAN_OFF); pinMode(RELAY_FAN, OUTPUT);
@@ -674,7 +717,7 @@ void setup() {
 
   buzzerOFFFunction();
   lcd.setCursor(2, 0); lcd.print("WELCOME GLiPS");
-  lcd.setCursor(2, 1); lcd.print("TVETMARA LUMUT");
+  lcd.setCursor(0, 1); lcd.print("Starting system");
   delay(3000);
   buzzerOFFFunction();
   lcd.clear();
@@ -718,6 +761,7 @@ void setup() {
   }
   Serial.println("VOICE: Serial Monitor Newline: TEST_VOICE or STOP_VOICE");
 
+  monitoringStartedAt = millis();
   lastSensor = millis();
   lastDbPush = millis();
 }

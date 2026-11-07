@@ -48,6 +48,15 @@ console.log('PASS private literal preservation, full sketch, pin/mode/calibratio
   assert(actual.includes('void processTelegramAlerts()'),'Reviewed Telegram scheduling missing');
   await page.locator('#copyButton').click();assert((await page.evaluate(()=>navigator.clipboard.readText()))===actual,'Clipboard does not contain the complete code');
   const pending=page.waitForEvent('download');await page.locator('#downloadButton').click();const download=await pending;assert.equal(download.suggestedFilename(),'GLiPS.ino');assert(fs.readFileSync(await download.path(),'utf8')===actual,'Downloaded sketch differs');
+  let currentWorking=fs.readFileSync(path.join(repo,'firmware/current-device/GLiPS.ino'),'utf8');
+  for(const [name,literal] of Object.entries(fields)) currentWorking=currentWorking.replace(new RegExp('(const\\s+char\\s*\\*\\s*'+name+'\\s*=\\s*)""'),(_,prefix)=>prefix+literal);
+  await page.goto(base+'/firmware/prepare-sketch.html?version=current&sequence=1');
+  await page.locator('#workingSketch').setInputFiles({name:'current.txt',mimeType:'text/plain',buffer:Buffer.from(currentWorking)});
+  await page.locator('#telegramCameraUrl').fill('https://camera.example/stream');
+  await page.locator('#prepareButton').click();await page.waitForFunction(()=>!document.getElementById('resultSection').hidden);
+  const sequence=await page.locator('#completeSketch').inputValue();
+  assert(sequence.includes('#define DEMO_MODE true'));assert(sequence.includes('restorePhotoLock()'));assert(sequence.includes('https://camera.example/stream'));
+  assert(!sequence.includes('lcd.print("TVETMARA LUMUT")'));
   assert(requests.every(r=>r.method==='GET'&&r.body===null),'This utility must not upload code or credentials');
   assert(requests.every(r=>r.url.startsWith(base+'/')),'Unexpected external request');
   assert(requests.every(r=>!r.url.includes('TEST_private_bot_token')),'Private data in request URL');

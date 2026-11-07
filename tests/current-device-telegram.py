@@ -22,12 +22,14 @@ String dangerEventTime="";
 const int WL_CONNECTED=3;struct Wifi{int status(){return WL_CONNECTED;}}WiFi;
 struct Log{void println(const char*){}}Serial;
 unsigned long millis(){return clockMs;}
+bool reservePhotoAttempt(){if(dangerPhotoAttempted)return false;dangerPhotoAttempted=true;return true;}
 String getTimeText(){return "07/11/2026 00:12:00 MYT (UTC+8)";}
 String buildTelegramAlert(bool critical){return critical?"DANGER":"WARNING";}
 int texts=0,photos=0;bool textOK=true;
 bool sendTelegramText(const String&){texts++;return textOK;}
 bool sendTelegramPhoto(const String&){assert(dangerTextSent);photos++;return false;}
 '''
+shim += '\nconst bool persistentPhoto = ' + ('true' if 'bool reservePhotoAttempt()' in s else 'false') + ';\n'
 main=r'''
 int main(){
 currentState=STATE_WARNING;gasPPM=200;
@@ -43,14 +45,14 @@ currentState=STATE_SAFE;gasPPM=80;processTelegramAlerts();clockMs+=59000;process
 assert(dangerPhotoAttempted);
 sensorValid=false;processTelegramAlerts();sensorValid=true;processTelegramAlerts();
 clockMs+=59000;processTelegramAlerts();assert(dangerPhotoAttempted);
-clockMs+=1001;processTelegramAlerts();assert(!dangerPhotoAttempted);
-currentState=STATE_DANGER;gasPPM=884;processTelegramAlerts();assert(photos==2&&texts==3);
+clockMs+=1001;processTelegramAlerts();assert(dangerPhotoAttempted==persistentPhoto);
+currentState=STATE_DANGER;gasPPM=884;processTelegramAlerts();assert(photos==(persistentPhoto?1:2)&&texts==3);
 // A new episode with failed text must not send a photo, and must stop retrying.
 currentState=STATE_SAFE;gasPPM=80;processTelegramAlerts();clockMs+=60001;processTelegramAlerts();
 currentState=STATE_DANGER;gasPPM=884;textOK=false;int before=texts;
 for(int i=0;i<10;i++){clockMs+=21000;processTelegramAlerts();}
-assert(texts-before==3&&photos==2);
-std::cout<<"PASS text-first order, one photo attempt, flapping suppression, valid SAFE rearm, bounded text retries\n";
+assert(texts-before==3&&photos==(persistentPhoto?1:2));
+std::cout<<"PASS text-first order, one photo attempt, flapping suppression, SAFE text rearm without photo unlock, bounded text retries\n";
 }
 '''
 with tempfile.TemporaryDirectory() as tmp:

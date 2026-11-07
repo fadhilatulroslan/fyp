@@ -42,6 +42,10 @@ function mergeWorkingSketch(template, working, options = {}) {
     if (url.pathname === '/') url.pathname = '/stream';
     code = code.replace(declaration('PUBLIC_STREAM_URL'), (_, prefix, previous, suffix) => prefix + JSON.stringify(url.href) + suffix);
   }
+  if (options.testSequence) {
+    if (!code.includes('testSequenceReading(')) throw new Error('Automatic test sequence is available only for the reviewed current-device template.');
+    code = code.replace(/(#define\s+DEMO_MODE\s+)(?:true|false)/, '$1true');
+  }
   return '// PRIVATE COMPLETE SKETCH: contains your connection settings. Do not publish.\n' + code.replace(/^\/\/ Public full-system sketch:.*\n/, '');
 }
 
@@ -59,6 +63,11 @@ if (typeof document !== 'undefined') {
   const tell = (message, error = false) => { status.textContent = message; status.classList.toggle('error', error); };
   input.addEventListener('change', () => { clear(); tell('Ready to prepare your selected file.'); });
   document.getElementById('telegramCameraUrl')?.addEventListener('input', () => { clear(); tell('Camera URL changed. Prepare the code again before copying.'); });
+  const testSequence = document.getElementById('testSequence');
+  if (testSequence) {
+    testSequence.checked = new URLSearchParams(window.location.search).get('sequence') === '1';
+    testSequence.addEventListener('change', () => { clear(); tell('Reading mode changed. Prepare the code again.'); });
+  }
   prepare.addEventListener('click', async () => {
     clear();
     const file = input.files[0];
@@ -75,9 +84,9 @@ if (typeof document !== 'undefined') {
       const response = await fetch(url, {cache: 'no-store'});
       if (!response.ok) throw new Error('The public template could not be loaded. Try again after deployment finishes.');
       const template = await response.text();
-      output.value = mergeWorkingSketch(template, working, {cameraUrl: document.getElementById('telegramCameraUrl')?.value.trim()});
+      output.value = mergeWorkingSketch(template, working, {cameraUrl: document.getElementById('telegramCameraUrl')?.value.trim(), testSequence: testSequence?.checked});
       result.hidden = false; copy.disabled = false; download.disabled = false;
-      tell('Complete code is ready. Your existing connection settings are included.');
+      tell(testSequence?.checked ? 'Complete test code is ready: simulated SAFE → WARNING → DANGER. Your connection settings are included.' : 'Complete code is ready. Your existing connection settings are included.');
       result.scrollIntoView({behavior:'smooth', block:'start'});
     } catch (error) { clear(); tell(error.message || 'The sketch could not be prepared.', true); }
     finally { input.disabled = false; prepare.disabled = false; }

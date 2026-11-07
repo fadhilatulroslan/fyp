@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Prepare complete ESP sketch | GLiPS</title>
   <link rel="stylesheet" href="prepare-sketch.css">
-  <script src="prepare-sketch.js?v=reviewed-legacy-3" defer></script>
+  <script src="prepare-sketch.js?v=full-single-photo-4" defer></script>
 </head>
 <body>
 <main>
@@ -18,6 +18,8 @@
     <h2>1. Choose your working code</h2>
     <label for="workingSketch">Local Arduino sketch (.ino) or pasted text file (.txt)</label>
     <input id="workingSketch" type="file" accept=".ino,.txt,text/plain">
+    <label><input id="testSequence" type="checkbox"> Run automatic test sequence: SAFE 20s → WARNING 20s → DANGER</label>
+    <p class="hint">Uses simulated gas readings to test outputs and alerts. Leave unchecked for the selected sketch's existing sensor mode. Never use the test sequence for real gas monitoring.</p>
     <label for="telegramCameraUrl">Current HTTPS camera stream URL for Telegram (optional)</label>
     <input id="telegramCameraUrl" type="url" placeholder="https://your-tunnel.trycloudflare.com/stream" autocomplete="off">
     <p class="hint">Paste the working camera URL from your dashboard. A restarted quick tunnel needs a new URL in both the dashboard and the uploaded ESP sketch.</p>

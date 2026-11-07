@@ -21,3 +21,13 @@ The snapshot buffer is copied and the camera driver's frame returned before netw
 The helper has an optional current HTTPS camera URL field. Dashboard URL settings do not automatically update ESP firmware. Restarting a quick tunnel requires updating the camera URL in the dashboard and the generated/uploaded sketch. Set the current working URL before preparing the code.
 
 Validation: `python3 tests/current-device-telegram.py` compiles the real scheduler, message builder and photo function with fake network/Arduino interfaces. It checks ordering, repeated DANGER, state flapping, invalid readings, SAFE rearm, bounded failures, content and frame ownership. This is not a full ESP32 compile or a real notification test.
+
+## Full firmware v3 (supersedes photo rearming above)
+
+The latest update is based on the identical newly supplied original sketch. LCD startup now reads WELCOME GLiPS / Starting system, without TVETMARA LUMUT. Existing pins, real-mode sensor conversion and output behavior remain in place. The optional preparation-page test checkbox sets DEMO_MODE=true and runs a single 80ppm SAFE stage for 20s, 200ppm WARNING for 20s, then holds 350ppm DANGER; it does not loop. With the box unchecked, the source's sensor mode is preserved and an initially high reading goes straight to DANGER. The original analog-to-ppm conversion is only an estimate and has not been calibrated here.
+
+A photo upload attempt is now persisted BEFORE network transmission using Preferences namespace glips-photo. SAFE transitions and reboots do not clear it. Failed storage initialization/write disables automatic photos. This favors no repeated photos over guaranteed delivery. To permit one new attempt, send REARM_PHOTO on Serial Monitor 115200 with Newline, only while the sensor has a fresh valid SAFE reading; storage must be available. Text alerts still rearm after sustained SAFE. Erasing NVS removes the saved photo lock.
+
+The database JSON always includes hardware_outputs; no fallback removes it. Check startup marker GLiPS full firmware v3, SUPABASE payload includes hardware_outputs and HTTP201, then check the newest row. Previous rows remain NULL unless deliberately edited; uploading the new firmware does not backfill old telemetry. GPIO command reports are not physical feedback. Full ESP compile and hardware tests remain required.
+
+Additional regression: python3 tests/current-photo-lock.py compiles the actual persisted reservation and test-stage functions with host stubs, including reboot/write-failure/open-failure cases. Browser tests cover full-code generation in both architectures and the explicit test checkbox.
