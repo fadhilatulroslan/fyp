@@ -119,7 +119,7 @@ function setHTML(id, value) {
   const element = $(id);
 
   if (element) {
-    element.innerHTML = value;
+    if (element.innerHTML !== value) element.innerHTML = value;
   }
 }
 
@@ -1346,6 +1346,12 @@ function updateChart(records = allSensors) {
     selected.push(row);
   });
 
+  // Polling often returns the same rows. Keep the current plot and tooltip
+  // intact rather than rebuilding an unchanged chart every refresh.
+  const signature = JSON.stringify(selected.map(row => [row.created_at, getReadingStatus(row), getSensorGas(row)]));
+  if (sensorChart.glipsDataSignature === signature) return;
+  sensorChart.glipsDataSignature = signature;
+
   sensorChart.data.labels = selected.map(
     row => formatTimeOnly(row.created_at)
   );
@@ -1532,22 +1538,22 @@ function filterAlertsByMonth() {
   setText("warningAlertsMonth", alerts.filter(a => a.status === "WARNING").length);
 
   if (tableBody) {
-    tableBody.innerHTML = alerts.length
+    setHTML("alertTableBody", alerts.length
       ? alerts.map(alert => `<tr>
           <td>${escapeHTML(formatDate(alert.created_at))}</td>
           <td>${escapeHTML(formatTimeOnly(alert.created_at))}</td>
           <td>${escapeHTML(formatNumber(alert.gas_ppm))} ppm</td>
           <td><span class="status-badge ${escapeHTML(alert.status.toLowerCase())}">${escapeHTML(alert.status)}</span></td>
         </tr>`).join("")
-      : '<tr><td colspan="4">No records match your filters.</td></tr>';
+      : '<tr><td colspan="4">No records match your filters.</td></tr>');
   }
   if (list) {
-    list.innerHTML = alerts.length
+    setHTML("alertHistoryList", alerts.length
       ? alerts.map(alert => `<div class="alert-item ${escapeHTML(alert.status.toLowerCase())}">
           <div><strong>${escapeHTML(alert.status)}</strong><div>${escapeHTML(formatTime(alert.created_at))}</div></div>
           <strong>${escapeHTML(formatNumber(alert.gas_ppm))} ppm</strong>
         </div>`).join("")
-      : '<div class="event-empty">No records match your filters.</div>';
+      : '<div class="event-empty">No records match your filters.</div>');
   }
 }
 

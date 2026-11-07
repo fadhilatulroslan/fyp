@@ -2760,3 +2760,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .header .brand-mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .loading-logo { display: block; object-fit: contain; margin: 0 auto 12px; }
 @media (max-width: 600px) { .header .brand-mark { width: 55px; height: 55px; } }
+
+/* Restrained dashboard motion; no delay to alarm text or state changes. */
+.dash button { transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.dash input, .dash select, .dash textarea { transition: border-color .18s ease, box-shadow .18s ease; }
+.dash .section { transition: border-color .2s ease, box-shadow .2s ease; }
+.dash .hero-alert, .dash .response-summary { transition: background-color .18s ease, border-color .18s ease; }
+.technical-section > summary { transition: background-color .18s ease, color .18s ease; }
+.technical-section > summary:hover { background: var(--brand-emerald-soft, #edf6f4); }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .dash button:hover:not(:disabled) { transform: translateY(-1px); }
+  .dash button:active:not(:disabled) { transform: translateY(0); }
+}
+@keyframes detail-arrive { from { opacity: .65; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: no-preference) {
+  .technical-section[open] > :not(summary) { animation: detail-arrive .18s ease-out; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dash *, .dash *::before, .dash *::after { transition: none !important; animation: none !important; }
+}
