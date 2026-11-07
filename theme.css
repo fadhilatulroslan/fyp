@@ -1,0 +1,90 @@
+/* Shared GLiPS identity: ivory, emerald and restrained gold accents.
+   SAFE / WARNING / DANGER tokens remain independent of brand colors. */
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap");
+:root {
+  --brand-ivory: #f8f5ed;
+  --brand-surface: #fffefa;
+  --brand-emerald: #225c46;
+  --brand-emerald-deep: #173f32;
+  --brand-emerald-soft: #edf4ec;
+  --brand-gold: #96712e;
+  --brand-gold-light: #d9bd7b;
+  --brand-ink: #283c31;
+  --brand-muted: #657267;
+  --brand-line: #e2e3d5;
+  --brand-radius: 16px;
+  --brand-shadow: 0 6px 25px #263f2c06;
+  --brand-font: "DM Sans", "Segoe UI", sans-serif;
+  --brand-heading: "Manrope", "Segoe UI", sans-serif;
+  --bg-main: var(--brand-ivory);
+  --bg-secondary: #f0efe5;
+  --card-bg: var(--brand-surface);
+  --text-dark: var(--brand-ink);
+  --text-primary: #354b3d;
+  --text-muted: var(--brand-muted);
+  --border-color: var(--brand-line);
+  --border-strong: #cbd3c3;
+  --color-info: var(--brand-emerald);
+  --bg-info-light: var(--brand-emerald-soft);
+  --border-info: #c6d9c8;
+  --ink: var(--brand-ink);
+  --muted: var(--brand-muted);
+  --line: var(--brand-line);
+  --blue: var(--brand-emerald);
+  --gold: var(--brand-gold);
+}
+body { background: var(--brand-ivory); color: var(--brand-ink); font-family: var(--brand-font); }
+/* Login */
+.story-panel { background: linear-gradient(145deg, #fbf8ef, #f1f0e3 65%, #e5eddf); border-color: var(--brand-line); }
+.story-content h1, .login-heading h2 { font-family: var(--brand-heading); color: var(--brand-ink); }
+.story-content h1 em { color: var(--brand-emerald); }
+.identity-dot, .transition-period { color: var(--brand-gold); }
+.eyebrow, .form-eyebrow { color: var(--brand-gold); }
+.eyebrow-line, .access-signal { background: var(--brand-gold); }
+.intro, .login-heading p, .remember-me { color: var(--brand-muted); }
+.access-panel { background: #fcfaf4; }
+.login-box { background: var(--brand-surface); border-color: var(--brand-line); box-shadow: var(--brand-shadow); }
+.login-symbol { background: var(--brand-emerald-soft); border-color: #d6e2d3; color: var(--brand-emerald); }
+.input-wrapper input { background: #fcfbf6; border-color: var(--brand-line); color: var(--brand-ink); }
+.input-wrapper input:focus { border-color: var(--brand-emerald); box-shadow: 0 0 0 3px #225c4615; }
+.btn-login { background: var(--brand-emerald); }
+.btn-login:hover { background: var(--brand-emerald-deep); }
+.remember-me input { accent-color: var(--brand-emerald); }
+.film-caption { background: var(--brand-surface); color: var(--brand-muted); }
+.capabilities span { border-color: #dcdcc8; background: #fffdf380; color: #52624d; }
+.capabilities i, .access-note i { color: var(--brand-gold); }
+.glips-transition { background: var(--brand-ivory); color: var(--brand-ink); }
+.transition-content h2 em, .transition-eyebrow { color: var(--brand-emerald); }
+.transition-rule, .transition-progress { background: var(--brand-line); }
+.transition-rule span { background: var(--brand-gold); }
+.transition-progress span { background: var(--brand-emerald); }
+/* Dashboard */
+.header { background: var(--brand-emerald-deep); border-color: var(--brand-emerald-deep); border-top: 3px solid var(--brand-gold-light); border-radius: var(--brand-radius); }
+.header h1 { font-family: var(--brand-heading); }
+.header .header-sub { color: #d5e2d3; }
+.header .brand-mark { background: transparent; }
+.header .btn-refresh, .header .btn-help, .header .btn-logout { border-color: #759181; border-radius: 9px; }
+.header .btn-refresh { background: #f8f5ed; color: var(--brand-emerald-deep); border-color: #f8f5ed; }
+.header .btn-refresh:hover { background: #e9e4d5; color: var(--brand-emerald-deep); border-color: #e9e4d5; }
+.header .btn-help:hover, .header .btn-logout:hover { background: #2b5945; border-color: #a6baaa; }
+.header .connection-status-pill:not(.safe):not(.warning):not(.danger) { background: #2c5040; border-color: #73917d; color: #e4ebde; }
+.section, .technical-section { background: var(--brand-surface); border-color: var(--brand-line); border-radius: var(--brand-radius); box-shadow: var(--brand-shadow); }
+.section-title h2 { font-family: var(--brand-heading); color: var(--brand-ink); }
+.section-title > i { color: var(--brand-emerald); background: var(--brand-emerald-soft); }
+.connection-strip { background: var(--brand-surface); border-color: var(--brand-line); }
+.overview-layout .hero-alert.safe { background: var(--brand-surface); }
+.overview-layout .hero-alert.offline, .response-summary.unavailable { background: #f4f3eb; }
+.overview-layout .hero-eyebrow { font-family: var(--brand-heading); }
+.response-summary:not(.attention) h2 { color: var(--brand-ink); font-family: var(--brand-heading); }
+.response-list > div { border-color: var(--brand-line); }
+.text-button { color: var(--brand-emerald); }
+.assistant-panel { background: #eff3e8; border-color: #d3ddc8; }
+.assistant-input-row input, .history-date-filters input, .history-date-filters select, .camera-settings input { color: var(--brand-ink); border-color: #d2d9c9; background: var(--brand-surface); }
+.assistant-input-row button, .btn-camera { background: var(--brand-emerald); border-color: var(--brand-emerald); }
+.assistant-input-row button:hover, .btn-camera:hover { background: var(--brand-emerald-deep); }
+.assistant-suggestions button { color: var(--brand-emerald); border-color: #c6d4bc; }
+.alert-table th { background: #f3f1e7; color: #4b604e; }
+.dashboard-footer { color: var(--brand-muted); }
+button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--brand-gold); outline-offset: 3px; }
+/* Avoid repainting semantic alarm colors with the decorative gold accent. */
+@media (max-width: 700px) { .header .header-actions { border-color: #537761; } }
