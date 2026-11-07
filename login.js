@@ -775,8 +775,9 @@ async function handleLogin() {
 function showGLiPSLoginTransition() {
   const overlay = document.getElementById("glipsTransition");
   if (!overlay) return Promise.resolve();
+  document.getElementById("loginFilm")?.pause();
   overlay.classList.add("is-visible");
   overlay.setAttribute("aria-hidden", "false");
   const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  return new Promise(resolve => window.setTimeout(resolve, reduceMotion ? 100 : 1250));
+  return new Promise(resolve => window.setTimeout(resolve, reduceMotion ? 0 : 650));
 }

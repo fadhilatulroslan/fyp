@@ -17,7 +17,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="theme.css?v=cream-teal-champagne2">
+  <link rel="stylesheet" href="theme.css?v=journey3">
 </head>
 
 <body>
@@ -26,18 +26,14 @@
        LOADING SCREEN
   ========================================== -->
 
-  <div id="loadingScreen">
-    <div class="loading-ring"></div>
-
-    <img class="loading-logo" src="assets/brand/glips-logo.png" alt="" width="88" height="88">
-    <p class="loading-title">GLiPS</p>
-
-    <p class="loading-sub">
-      Connecting to sensors and database...
-    </p>
-
-    <div class="loading-bar-wrap">
-      <div class="loading-bar" id="loadingBar"></div>
+  <div id="loadingScreen" class="journey-screen" role="status" aria-live="polite">
+    <div class="journey-card">
+      <img class="journey-logo" src="assets/brand/glips-logo.png" alt="GLiPS" width="112" height="112">
+      <p class="journey-eyebrow">YOUR SAFETY, CONNECTED</p>
+      <h2>Opening your<br><em>safety dashboard.</em></h2>
+      <p class="journey-description">Loading the latest readings and device reports.</p>
+      <div class="journey-progress" role="progressbar" aria-label="Loading dashboard"><span></span></div>
+      <p class="journey-footer">GLiPS <span>·</span> LPG SAFETY MONITORING</p>
     </div>
   </div>
 
@@ -703,7 +699,7 @@
        FLOATING AI CHAT WINDOW
   ========================================== -->
 
-  <script src="script.js?v=smooth1"></script>
+  <script src="script.js?v=journey2"></script>
 
 </body>
 </html>

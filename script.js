@@ -377,22 +377,34 @@ function showToast(
    LOADING AND OFFLINE HANDLING
    ===================================================== */
 
+let dashboardRevealed = false;
 function hideLoading() {
+  if (dashboardRevealed) return;
+  dashboardRevealed = true;
   const loading = $("loadingScreen");
   const dashboard = document.querySelector(".dash");
-
-  if (loading) {
-    loading.style.display = "none";
-    loading.hidden = true;
-  }
-
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const urgent = currentSensor && getReadingStatus(currentSensor) === "DANGER";
   if (dashboard) {
     dashboard.style.display = "flex";
     dashboard.hidden = false;
+    if (!reduceMotion && !urgent) {
+      dashboard.classList.add("dashboard-arriving");
+      setTimeout(() => dashboard.classList.remove("dashboard-arriving"), 450);
+    }
   }
-
+  if (loading) {
+    const finish = () => { loading.hidden = true; loading.style.display = "none"; };
+    if (reduceMotion || urgent) finish();
+    else {
+      loading.classList.add("is-leaving");
+      loading.setAttribute("aria-hidden", "true");
+      setTimeout(finish, 240);
+    }
+  }
   document.body.style.overflow = "";
 }
+
 
 /* =====================================================
    MONITORING BADGE

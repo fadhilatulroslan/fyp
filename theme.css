@@ -88,3 +88,30 @@ body { background: var(--brand-ivory); color: var(--brand-ink); font-family: var
 button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--brand-gold); outline-offset: 3px; }
 /* Avoid repainting semantic alarm colors with the decorative gold accent. */
 @media (max-width: 700px) { .header .header-actions { border-color: #537f80; } }
+
+/* A matching handoff before and after successful sign-in. */
+html { background: var(--brand-ivory); }
+.journey-screen, #loadingScreen.journey-screen {
+  position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center;
+  padding: 28px; background: var(--brand-ivory); color: var(--brand-ink);
+}
+.journey-card { width: min(100%, 430px); text-align: center; }
+.journey-logo { display: block; width: 112px; height: 112px; object-fit: contain; margin: 0 auto 28px; }
+.journey-eyebrow { color: var(--brand-gold); font-size: 10px; letter-spacing: 2px; font-weight: 700; margin: 0 0 14px; }
+.journey-card h2 { margin: 0 0 17px; font: 800 clamp(30px, 5vw, 43px)/1.2 var(--brand-heading); letter-spacing: -1.5px; }
+.journey-card h2 em { color: var(--brand-emerald); font-style: normal; }
+.journey-description { color: var(--brand-muted); font-size: 13px; line-height: 1.7; margin: 0 0 28px; }
+.journey-progress { height: 3px; max-width: 230px; margin: 0 auto; background: #e2e4d9; border-radius: 10px; overflow: hidden; }
+.journey-progress span { display: block; width: 40%; height: 100%; background: var(--brand-emerald); border-radius: inherit; animation: journey-progress 1.3s ease-in-out infinite alternate; }
+.journey-footer { color: var(--brand-muted); margin: 23px 0 0; font-size: 9px; font-weight: 600; letter-spacing: 1.3px; }
+.journey-footer span { color: var(--brand-gold); margin: 0 8px; }
+#loadingScreen.is-leaving { opacity: 0; pointer-events: none; transition: opacity .24s ease; }
+@keyframes journey-progress { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@keyframes dashboard-arrive { from { opacity: .65; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: no-preference) {
+  .dashboard-arriving { animation: dashboard-arrive .4s ease-out both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .journey-progress span { animation: none; width: 100%; opacity: .5; }
+  #loadingScreen.is-leaving { transition: none; }
+}
