@@ -485,7 +485,7 @@ String buildTelegramAlert(bool critical) {
   message += "Exhaust fan: " + String(digitalRead(RELAY_FAN) == FAN_ON ? "ON" : "OFF") + "\n";
   message += "Buzzer: " + String(digitalRead(BUZZER_PIN) == BUZZER_ON ? "ON" : "OFF") + "\n";
   message += "Voice: " + String(!dfReady ? "Module unavailable" : voicePlaybackRequested ? "Play requested" : "Stop requested") + "\n\n";
-  message += "Dashboard: " + dashboardURL() + "\n";
+  message += "Dashboard: https://fadhilatulroslan.github.io/fyp/dashboard.html\n";
   String stream = shareableCameraURL();
   message += stream.startsWith("https://") ? "Live camera (while tunnel is active): " : "Live camera (same Wi-Fi only): ";
   message += stream + "\n\n";

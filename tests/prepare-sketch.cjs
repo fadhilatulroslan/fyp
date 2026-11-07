@@ -17,6 +17,8 @@ for(const [name,literal] of Object.entries(fields)) {
   working=working.replace(pattern,(_,prefix)=>prefix+literal);
 }
 const merged = mergeWorkingSketch(template,working);
+const reviewedTemplate = fs.readFileSync(path.join(repo,'firmware/reviewed-legacy/GLiPS.ino'),'utf8');
+const browserMerged = mergeWorkingSketch(reviewedTemplate, working);
 for(const literal of Object.values(fields)) assert(merged.includes(literal),'Private literal was not preserved');
 assert(merged.includes('SITE_NAME = "IKM Lumut"'));
 assert(merged.includes('resetValveLatch()'));
@@ -42,7 +44,8 @@ console.log('PASS private literal preservation, full sketch, pin/mode/calibratio
   await page.goto(base+'/firmware/prepare-sketch.html');
   await page.locator('#workingSketch').setInputFiles({name:'working.ino',mimeType:'text/plain',buffer:Buffer.from(working)});
   await page.locator('#prepareButton').click();await page.waitForFunction(()=>!document.getElementById('resultSection').hidden);
-  const actual=await page.locator('#completeSketch').inputValue();assert(actual===merged,'Browser merge differs from tested merge');
+  const actual=await page.locator('#completeSketch').inputValue();assert(actual===browserMerged,'Browser did not select the reviewed changeStatus template');
+  assert(actual.includes('void processTelegramAlerts()'),'Reviewed Telegram scheduling missing');
   await page.locator('#copyButton').click();assert((await page.evaluate(()=>navigator.clipboard.readText()))===actual,'Clipboard does not contain the complete code');
   const pending=page.waitForEvent('download');await page.locator('#downloadButton').click();const download=await pending;assert.equal(download.suggestedFilename(),'GLiPS.ino');assert(fs.readFileSync(await download.path(),'utf8')===actual,'Downloaded sketch differs');
   assert(requests.every(r=>r.method==='GET'&&r.body===null),'This utility must not upload code or credentials');

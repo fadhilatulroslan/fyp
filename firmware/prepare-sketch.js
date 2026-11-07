@@ -68,7 +68,9 @@ if (typeof document !== 'undefined') {
     try {
       const working = await file.text();
       const currentDevice = new URLSearchParams(window.location.search).get('version') === 'current';
-      const url = new URL(currentDevice ? 'current-device/GLiPS.ino' : 'GLiPS/GLiPS.ino', window.location.href);
+      const reviewedLegacy = /\bvoid\s+changeStatus\s*\(/.test(working);
+      const templatePath = reviewedLegacy ? 'reviewed-legacy/GLiPS.ino' : currentDevice ? 'current-device/GLiPS.ino' : 'GLiPS/GLiPS.ino';
+      const url = new URL(templatePath, window.location.href);
       url.searchParams.set('v', String(Date.now()));
       const response = await fetch(url, {cache: 'no-store'});
       if (!response.ok) throw new Error('The public template could not be loaded. Try again after deployment finishes.');

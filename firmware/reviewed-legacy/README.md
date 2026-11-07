@@ -1,0 +1,7 @@
+# Reviewed changeStatus compatibility
+
+The uploaded `code esp.txt` uses an older boolean `changeStatus` architecture, DEMO_MODE=true, 1000/800 thresholds and MQ_R0=NAN. It cannot merge into the different enum-based current-device template. The preparation page recognizes changeStatus and chooses this reviewed full-system template, then retains all existing library/function, pin, polarity, mode, calibration and credential checks. Unknown functions and mismatched pins still reject; the guard has not been disabled.
+
+This template combines the reviewed full-system 300/250 hysteresis and persistent local-reset valve latch with current-device Telegram v2 and speaker diagnostics. WARNING text includes the location link without a photo; DANGER sends text with location, public dashboard and camera links followed by a single photo attempt. The public dashboard URL is corrected. Private settings are restored only in the browser. DEMO_MODE remains true for this supplied source, and MQ_R0 remains NAN; physical gas readings require actual calibration and mode configuration. Do not present simulated readings as measured ppm.
+
+Regression: python3 tests/reviewed-legacy.py runs actual-function host harnesses for GPIO/control, safe reset, JSON, alert scheduling/content and photo ownership. The actual uploaded source also passes the browser merger guards without exposing credentials. No full board compile or physical test was possible here.

@@ -59,7 +59,7 @@ with tempfile.TemporaryDirectory() as tmp:
  subprocess.run([str(exe)],check=True)
 # Ensure payload has all requested links and clock fallback without fabricated time.
 body=s[s.index('String buildTelegramAlert('):a]
-for required in ['SITE_MAP_URL','shareableCameraURL()','getTimeText()','dangerEventTime','dashboardURL()','digitalRead(RELAY_FAN)','digitalRead(BUZZER_PIN)']:
+for required in ['SITE_MAP_URL','shareableCameraURL()','getTimeText()','dangerEventTime','https://fadhilatulroslan.github.io/fyp/dashboard.html','digitalRead(RELAY_FAN)','digitalRead(BUZZER_PIN)']:
  assert required in body
 assert 'sendTelegramLocation(' not in function
 assert 'Not synchronized; device uptime' in s
