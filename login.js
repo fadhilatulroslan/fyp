@@ -715,7 +715,7 @@ async function handleLogin() {
 
     );
 
-    await showGLiPSLoginTransition();
+    document.getElementById("loginFilm")?.pause();
     window.location.replace("dashboard.html");
 
 
@@ -768,16 +768,4 @@ async function handleLogin() {
 
   }
 
-}
-
-
-// Display the transition only after Supabase authentication has succeeded.
-function showGLiPSLoginTransition() {
-  const overlay = document.getElementById("glipsTransition");
-  if (!overlay) return Promise.resolve();
-  document.getElementById("loginFilm")?.pause();
-  overlay.classList.add("is-visible");
-  overlay.setAttribute("aria-hidden", "false");
-  const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  return new Promise(resolve => window.setTimeout(resolve, reduceMotion ? 0 : 650));
 }

@@ -167,12 +167,9 @@ const row = (id, gas, age = 0) => ({id, gas_ppm:gas, created_at:new Date(Date.no
     await page.evaluate(()=>{sb.auth.signOut=async()=>({error:null})});page.once('dialog',d=>d.accept());await page.evaluate(()=>logout());await page.waitForURL('**/index.html');
     await page.waitForFunction(()=>loginReady);await page.locator('#password').fill('test-only');await page.locator('.toggle-pass').click();assert.equal(await page.locator('#password').getAttribute('type'),'text');
     await page.evaluate(()=>{document.getElementById('username').value='unknown';return handleLogin()});assert.match(await text('errorText'),/Invalid username/);
-    await page.evaluate(()=>{document.getElementById('username').value='admin';loginSupabase.auth.signInWithPassword=async()=>({error:new Error('Invalid login credentials')});return handleLogin()});assert.equal(await page.locator('#loginBtn').isEnabled(),true);assert.equal(await page.evaluate(()=>isLoggingIn),false);assert.equal(await page.locator('#glipsTransition').getAttribute('aria-hidden'),'true');
+    await page.evaluate(()=>{document.getElementById('username').value='admin';loginSupabase.auth.signInWithPassword=async()=>({error:new Error('Invalid login credentials')});return handleLogin()});assert.equal(await page.locator('#loginBtn').isEnabled(),true);assert.equal(await page.evaluate(()=>isLoggingIn),false);assert.equal(await page.locator('#glipsTransition').count(),0);
     assert.deepEqual(errors,[]);console.log('PASS logout, login toggle, unknown user, failed login, no uncaught JS errors');
     await page.evaluate(()=>{loginSupabase.auth.signInWithPassword=async()=>({error:null,data:{session:{access_token:'test-only'},user:{email:'admin@gmail.com'}}});document.getElementById('rememberMe').checked=true;void handleLogin()});
-    await page.locator('#glipsTransition').waitFor({state:'visible'});
-    assert.equal(await page.locator('#glipsTransition').getAttribute('aria-hidden'),'false');
-    assert.match(await page.locator('#glipsTransition h2').innerText(),/safety dashboard/);
     await page.waitForURL('**/dashboard.html');await page.waitForFunction(()=>!isLoading && databaseConnected);
     await page.waitForFunction(()=>document.getElementById('loadingScreen').hidden);
     assert.equal(await page.evaluate(()=>localStorage.getItem('lpg_remember_user')),'admin');
