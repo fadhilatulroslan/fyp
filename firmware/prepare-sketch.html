@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Prepare complete ESP sketch | GLiPS</title>
   <link rel="stylesheet" href="prepare-sketch.css">
-  <script src="prepare-sketch.js?v=startup-green-5" defer></script>
+  <script src="prepare-sketch.js?v=warning-voice-6" defer></script>
 </head>
 <body>
 <main>
@@ -20,9 +20,9 @@
     <input id="workingSketch" type="file" accept=".ino,.txt,text/plain">
     <label><input id="testSequence" type="checkbox"> Run automatic test sequence: SAFE 20s → WARNING 20s → DANGER</label>
     <p class="hint">Uses simulated gas readings to test outputs and alerts. Leave unchecked for the selected sketch's existing sensor mode. Never use the test sequence for real gas monitoring.</p>
-    <label for="telegramCameraUrl">Current HTTPS camera stream URL for Telegram (optional)</label>
+    <label for="telegramCameraUrl">Optional HTTPS stream URL for other firmware helpers</label>
     <input id="telegramCameraUrl" type="url" placeholder="https://your-tunnel.trycloudflare.com/stream" autocomplete="off">
-    <p class="hint">Paste the working camera URL from your dashboard. A restarted quick tunnel needs a new URL in both the dashboard and the uploaded ESP sketch.</p>
+    <p class="hint">Telegram alerts use the ESP local IP camera link automatically. The dashboard camera connection is configured separately.</p>
     <p class="hint" id="versionHint">Default version includes the 300/250 ppm alarm settings, manual valve reset, device reports, camera fixes and the IKM Lumut location. The current-device diagnostic version preserves the selected device template's existing control rules and adds output reports and speaker diagnostics.</p>
     <button id="prepareButton" type="button">Prepare complete code</button>
     <p id="prepareStatus" role="status" aria-live="polite">Choose your working file to begin.</p>

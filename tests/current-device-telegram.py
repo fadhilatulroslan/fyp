@@ -61,7 +61,7 @@ with tempfile.TemporaryDirectory() as tmp:
  subprocess.run([str(exe)],check=True)
 # Ensure payload has all requested links and clock fallback without fabricated time.
 body=s[s.index('String buildTelegramAlert('):a]
-for required in ['SITE_MAP_URL','shareableCameraURL()','getTimeText()','dangerEventTime','https://fadhilatulroslan.github.io/fyp/dashboard.html','digitalRead(RELAY_FAN)','digitalRead(BUZZER_PIN)']:
+for required in ['SITE_MAP_URL','cameraURL()','getTimeText()','dangerEventTime','https://fadhilatulroslan.github.io/fyp/dashboard.html','digitalRead(RELAY_FAN)','digitalRead(BUZZER_PIN)']:
  assert required in body
 assert 'sendTelegramLocation(' not in function
 assert 'Not synchronized; device uptime' in s
@@ -79,14 +79,14 @@ const int RELAY_VALVE=1,RELAY_FAN=2,BUZZER_PIN=3,HIGH=1,FAN_ON=1,BUZZER_ON=0;
 int digitalRead(int pin){return pin==BUZZER_PIN?0:1;}
 bool dfReady=true,voicePlaybackRequested=true;
 String dashboardURL(){return "https://dashboard.example/";}
-String shareableCameraURL(){return "https://camera.example/stream";}
+String cameraURL(){return "http://10.178.40.114:81/stream";}
 '''
 message_main=r'''
 int main(){dangerEventTime=getTimeText();String text=buildTelegramAlert(true);
 assert(text.find("IKM Lumut")!=std::string::npos);
 assert(text.find("MYT (UTC+8)")!=std::string::npos);
 assert(text.find("https://maps.app.goo.gl/AqbbRXZjT2Hft84j9")!=std::string::npos);
-assert(text.find("https://camera.example/stream")!=std::string::npos);
+assert(text.find("http://10.178.40.114:81/stream")!=std::string::npos);
 assert(text.find("Exhaust fan: ON")!=std::string::npos);
 assert(text.find("Buzzer: ON")!=std::string::npos);
 assert(text.find("physical operation not confirmed")!=std::string::npos);

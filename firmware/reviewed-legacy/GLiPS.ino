@@ -569,9 +569,7 @@ String buildTelegramAlert(bool critical) {
   message += "Buzzer: " + String(digitalRead(BUZZER_PIN) == BUZZER_ON ? "ON" : "OFF") + "\n";
   message += "Voice: " + String(!dfReady ? "Module unavailable" : voicePlaybackRequested ? "Play requested" : "Stop requested") + "\n\n";
   message += "Dashboard: https://fadhilatulroslan.github.io/fyp/dashboard.html\n";
-  String stream = shareableCameraURL();
-  message += stream.startsWith("https://") ? "Live camera (while tunnel is active): " : "Live camera (same Wi-Fi only): ";
-  message += stream + "\n\n";
+  message += "Live camera (same Wi-Fi only): " + cameraURL() + "\n\n";
   message += critical
     ? "Leave the affected area. Avoid flames and electrical switches. Follow site emergency procedures. Do not assume the gas supply is isolated."
     : "Check the area using site safety procedures. If gas is smelled or conditions worsen, leave the area and seek assistance.";
@@ -633,8 +631,8 @@ void updateSystemState() {
     if (currentState == STATE_DANGER) lastAlert = 0;
     updateOutputs();
     updateLCD();
-    if (currentState == STATE_DANGER) playAlarm();
-    else if (currentState == STATE_SAFE) stopAlarm();
+    if (currentState == STATE_WARNING) playAlarm();
+    else stopAlarm();
   }
 }
 
@@ -736,8 +734,8 @@ void handleVoiceDiagnostics() {
         }
       }
       if (!overflow && String(command) == "STOP_VOICE") {
-        if (sensorValid && currentState == STATE_DANGER)
-          Serial.println("VOICE: stop rejected while DANGER is active");
+        if (sensorValid && currentState == STATE_WARNING)
+          Serial.println("VOICE: stop rejected while WARNING is active");
         else stopAlarm();
       }
       used = 0;
@@ -763,8 +761,8 @@ void changeStatus(bool newDanger) {
   if (newDanger) lastAlert = 0;
   updateOutputs();
   updateLCD();
-  if (newDanger) playAlarm();
-  else if (next == STATE_SAFE) stopAlarm();
+  if (next == STATE_WARNING) playAlarm();
+  else stopAlarm();
 }
 
 void processTelegramAlert() { processTelegramAlerts(); }
@@ -775,7 +773,7 @@ void setup() {
   buzzerOFFFunction();
 
   Serial.begin(115200);
-  Serial.println("GLiPS full firmware v4: startup green + warning solid + danger blink");
+  Serial.println("GLiPS full firmware v5: warning voice + danger buzzer + local camera link");
   restorePhotoLock();
   delay(500);
 

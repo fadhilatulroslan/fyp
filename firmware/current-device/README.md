@@ -41,3 +41,9 @@ DFPlayer setup selects SD output and enables DAC, with volume25 and existing pla
 Regression: python3 tests/current-startup.py compiles actual startup/output/indicator functions for both modes and verifies SAFE green, WARNING steady red, DANGER flashing, safe initial relay levels and configured active-low buzzer. Full ESP compilation and physical checks remain outstanding.
 
 The v4 hardware path was subsequently aligned with the user's confirmed working code: original `begin(dfSerial,true,true)`, volume30 and `play(1)`, UART14/21, valve HIGH in DANGER/LOW otherwise. The experimental SD output/DAC configuration described above was removed to preserve the working audio initialization. TEST_MP3 remains an optional explicit /mp3/0001.mp3 diagnostic. The user confirmed a 12V valve power supply but did not provide current Serial readiness/error logs; physical operation cannot be established from the code alone.
+
+## v5 warning voice and local camera alert
+
+Per the user's explicit update, WARNING starts the original DFPlayer play(1) voice command with a steady red LED and buzzer OFF. DANGER stops voice, flashes red and enables the buzzer (fan/valve behavior remains unchanged). SAFE stops voice and keeps the green indicator. The legacy changeStatus compatibility entry point follows the same voice policy. STOP_VOICE is guarded while WARNING is active. Audio playback remains a requested command, not confirmation of sound.
+
+Telegram always uses cameraURL() built from the ESP's actual local Wi-Fi IP and port81/stream. It does not use PUBLIC_STREAM_URL or Cloudflare for alert links. The text explicitly marks the camera link as same-Wi-Fi-only; the separately configured dashboard HTTPS camera source is unaffected. Persistent photo lock, site Maps link, clock labels and hardware_outputs remain. tests/current-warning-voice.py verifies transitions in both templates, and existing actual-message tests assert the local IP URL.
