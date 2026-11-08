@@ -2151,8 +2151,14 @@ function getCameraImage() {
 
 function normalizeCameraUrl(value) {
   const url = new URL(String(value).trim());
-  if (url.protocol !== "https:" || url.username || url.password || url.hash) {
-    throw new Error("Use an HTTPS camera URL without credentials or a fragment.");
+  const host = url.hostname;
+  const octets = host.split(".").map(Number);
+  const privateIPv4 = octets.length === 4 && octets.every(n => Number.isInteger(n) && n >= 0 && n <= 255)
+    && (octets[0] === 10 || (octets[0] === 192 && octets[1] === 168) || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31));
+  const localHost = privateIPv4 || host === "localhost" || host === "127.0.0.1" || host.endsWith(".local");
+  const localHttp = window.location.protocol === "http:" && url.protocol === "http:" && localHost;
+  if ((url.protocol !== "https:" && !localHttp) || url.username || url.password || url.hash) {
+    throw new Error("Use HTTPS, or a local ESP HTTP address when running the dashboard over HTTP on your laptop.");
   }
   if (url.pathname === "/") url.pathname = "/stream";
   return url.href;
