@@ -220,7 +220,11 @@ function hasSensorFault(record) {
 }
 
 function getSensorGas(record) {
-  return hasSensorFault(record) ? null : numberOrNull(record?.gas_ppm);
+  if (hasSensorFault(record)) return null;
+  const hw = record?.hardware_outputs;
+  if (hw?.sensor_model === "MQ5" && hw?.measurement_basis === "experimental_estimate"
+      && Object.prototype.hasOwnProperty.call(hw, "gas_estimate_ppm")) return numberOrNull(hw.gas_estimate_ppm);
+  return numberOrNull(record?.gas_ppm);
 }
 
 function getGasStatus(ppm) {
@@ -241,7 +245,40 @@ function getGasStatus(ppm) {
   return "SAFE";
 }
 
+function getGasProfile(record = currentSensor) {
+  const hw = record?.hardware_outputs;
+  const warning = numberOrNull(hw?.gas_warning_ppm);
+  const danger = numberOrNull(hw?.gas_danger_ppm);
+  if (hw?.sensor_model === "MQ5" && hw?.measurement_basis === "experimental_estimate"
+      && warning !== null && danger !== null && warning > 0 && danger > warning) {
+    return {warning, danger, experimental: true};
+  }
+  return {warning: THRESHOLD.SAFE_MAX, danger: THRESHOLD.DANGER_MIN, experimental: false};
+}
+
+function updateGasProfileLabels(record) {
+  const profile = getGasProfile(record);
+  setText("gasSafeLegend", `SAFE ${profile.experimental ? "<" : "≤"}${profile.warning} ppm`);
+  setText("gasWarningLegend", `WARNING ${profile.experimental ? "≥" : ">"}${profile.warning}–<${profile.danger} ppm`);
+  setText("gasDangerLegend", `DANGER ≥${profile.danger} ppm`);
+  const basis = $("measurementBasis");
+  if (basis) basis.hidden = !profile.experimental;
+  const guide = $("thresholdGuide");
+  if (guide) {
+    if (!guide.dataset.originalGuide) guide.dataset.originalGuide = guide.innerHTML;
+    if (profile.experimental) {
+      setHTML("thresholdGuide", `<div><dt>Scale</dt><dd>MQ5 experimental estimate — not safety-calibrated</dd></div><div><dt>Safe range</dt><dd>Below ${profile.warning} ppm estimate</dd></div><div><dt>Warning trigger</dt><dd>${profile.warning} ppm estimate</dd></div><div><dt>Danger trigger</dt><dd>${profile.danger} ppm estimate</dd></div>`);
+    } else setHTML("thresholdGuide", guide.dataset.originalGuide);
+  }
+}
+
 function getReadingStatus(record) {
+  const profile = getGasProfile(record);
+  if (profile.experimental) {
+    const gas = getSensorGas(record);
+    if (gas === null || gas < 0) return "UNKNOWN";
+    return gas >= profile.danger ? "DANGER" : gas >= profile.warning ? "WARNING" : "SAFE";
+  }
   const fallback = getGasStatus(getSensorGas(record));
   if (fallback === "UNKNOWN" || fallback === "DANGER") return fallback;
   const reported = String(record?.status ?? "").trim().toUpperCase();
@@ -717,6 +754,7 @@ async function loadData() {
     // Save latest sensor data.
     allSensors = data;
     currentSensor = data[0];
+    updateGasProfileLabels(currentSensor);
 
     const recordedStatus = getReadingStatus(currentSensor);
 
@@ -1360,7 +1398,8 @@ function updateChart(records = allSensors) {
 
   // Polling often returns the same rows. Keep the current plot and tooltip
   // intact rather than rebuilding an unchanged chart every refresh.
-  const signature = JSON.stringify(selected.map(row => [row.created_at, getReadingStatus(row), getSensorGas(row)]));
+  const profile = getGasProfile(currentSensor);
+  const signature = JSON.stringify([profile.warning, profile.danger, selected.map(row => [row.created_at, getReadingStatus(row), getSensorGas(row)])]);
   if (sensorChart.glipsDataSignature === signature) return;
   sensorChart.glipsDataSignature = signature;
 
@@ -1375,11 +1414,13 @@ function updateChart(records = allSensors) {
 
   sensorChart.data.datasets[1].data =
     selected.map(
-      () => THRESHOLD.SAFE_MAX
+      () => profile.warning
     );
 
-  sensorChart.data.datasets[2].data = selected.map(() => THRESHOLD.DANGER_MIN);
+  sensorChart.data.datasets[2].data = selected.map(() => profile.danger);
 
+  sensorChart.data.datasets[1].label = `Safe range limit (${profile.warning} ppm${profile.experimental ? " estimate" : ""})`;
+  sensorChart.data.datasets[2].label = `Danger trigger (${profile.danger} ppm${profile.experimental ? " estimate" : ""})`;
   sensorChart.update("none");
 }
 
@@ -1428,9 +1469,8 @@ function loadAlertHistoryFromData(records) {
       alerts.push({
         id: record.id ?? record.created_at,
         created_at: record.created_at,
-        gas_ppm: numberOrNull(
-          record.gas_ppm
-        ),
+        hardware_outputs: record.hardware_outputs,
+        gas_ppm: getSensorGas(record),
         status
       });
     }
@@ -1581,7 +1621,7 @@ async function loadCompleteAlertHistory() {
     const rows = [];
     for (let offset = 0; offset < maxRows; offset += pageSize) {
       const { data, error } = await sb.from(CONFIG.sensorTable)
-        .select("id,created_at,gas_ppm,status")
+        .select("id,created_at,gas_ppm,status,hardware_outputs")
         .order("created_at", { ascending: false })
         .range(offset, offset + pageSize - 1)
         .abortSignal(AbortSignal.timeout(15000));
@@ -3234,6 +3274,7 @@ function drawGasGauge(ppm, isLive = false) {
   ctx.clearRect(0, 0, width, height);
   const value = numberOrNull(ppm);
   const live = Boolean(isLive && !isReadingStale(currentSensor) && value !== null && value >= 0);
+  const profile = getGasProfile(currentSensor);
   const cx = 130, cy = 145, radius = 102, scaleMax = 500;
   const angle = number => Math.PI + Math.max(0, Math.min(1, number / scaleMax)) * Math.PI;
   function arc(start, end, color) {
@@ -3242,12 +3283,12 @@ function drawGasGauge(ppm, isLive = false) {
   }
   arc(Math.PI, Math.PI * 2, "#dfe6e9");
   if (live) {
-    arc(Math.PI, angle(THRESHOLD.SAFE_MAX), "#269b6d");
-    arc(angle(THRESHOLD.SAFE_MAX), angle(THRESHOLD.DANGER_MIN), "#e7ab3e");
-    arc(angle(THRESHOLD.DANGER_MIN), Math.PI * 2, "#d85858");
+    arc(Math.PI, angle(profile.warning), "#269b6d");
+    arc(angle(profile.warning), angle(profile.danger), "#e7ab3e");
+    arc(angle(profile.danger), Math.PI * 2, "#d85858");
   }
   ctx.font = "11px system-ui, sans-serif";ctx.fillStyle = "#70828c";ctx.textBaseline = "middle";
-  [0, THRESHOLD.SAFE_MAX, THRESHOLD.DANGER_MIN, scaleMax].forEach(number => {
+  [0, profile.warning, profile.danger, scaleMax].forEach(number => {
     const theta = angle(number);
     ctx.textAlign = number === 0 ? "left" : number === scaleMax ? "right" : "center";
     ctx.fillText(number === scaleMax ? "500+" : String(number), cx + Math.cos(theta) * 124, cy + Math.sin(theta) * 124 + 7);
@@ -3263,7 +3304,7 @@ function drawGasGauge(ppm, isLive = false) {
   canvas.setAttribute("aria-label", live ? `Gas meter: ${formatNumber(value)} ppm. ${getReadingStatus(currentSensor)}.` : "Gas meter: no live reading. Current gas level is unknown.");
   setText("heroReadingNote", live ? "Current sensor reading" : "No live reading");
   const hint = $("meterHint");
-  const held = live && value < THRESHOLD.DANGER_MIN && getReadingStatus(currentSensor) === "DANGER";
+  const held = live && value < profile.danger && getReadingStatus(currentSensor) === "DANGER";
   if (hint) {
     hint.hidden = !held && !(live && value > scaleMax);
     hint.textContent = held ? "Danger warning remains active."

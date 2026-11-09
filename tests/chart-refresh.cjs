@@ -4,7 +4,7 @@ const source=fs.readFileSync(require('node:path').join(__dirname,'../script.js')
 const start=source.indexOf('function updateChart(records = allSensors)');
 const end=source.indexOf('/* =====================================================\n   CHART PERIOD',start);
 assert(end>start);
-const context={Date,JSON,CONFIG:{staleAfterMs:20000},THRESHOLD:{SAFE_MAX:100,DANGER_MIN:300},currentChartPeriod:10,lastReadingFresh:true,databaseConnected:true,currentSensor:{created_at:new Date().toISOString()},allSensors:[],updates:0,
+const context={getGasProfile:()=>({warning:100,danger:300,experimental:false}),Date,JSON,CONFIG:{staleAfterMs:20000},THRESHOLD:{SAFE_MAX:100,DANGER_MIN:300},currentChartPeriod:10,lastReadingFresh:true,databaseConnected:true,currentSensor:{created_at:new Date().toISOString()},allSensors:[],updates:0,
  $:()=>null,isReadingStale:r=>Date.now()-new Date(r.created_at)>20000,hasSensorFault:()=>false,getReadingStatus:r=>r.status||'UNKNOWN',getSensorGas:r=>r.gas_ppm??null,formatTimeOnly:t=>t};
 context.sensorChart={data:{datasets:[{},{},{}]},update(){context.updates++;}};
 vm.createContext(context);vm.runInContext(source.slice(start,end),context);
