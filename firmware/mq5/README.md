@@ -19,3 +19,11 @@ Experimental triggers: WARNING>=80, DANGER>=100, SAFE<80. These are the user's e
 ## Validation
 
 python3 tests/mq5-firmware.py compiles the actual sample/baseline/JSON functions with fake ADC, storage and Arduino interfaces. node tests/mq5-profile.cjs checks80/100 boundaries, precision, invalid profiles/faults and legacy behavior. The dashboard smoke suite passes with mocked external services. None of these checks establish real gas accuracy, audible sound, valve movement, network delivery or board compatibility.
+
+## v11 startup diagnostics and readable Serial output
+
+The user reports a restart loop before monitoring starts, without a reset log. No root cause is established. The sketch now reports esp_reset_reason() and seven startup steps with free memory before photo storage, outputs/timer, sensor storage, LCD, Wi-Fi, camera and DFPlayer. LCD I2C timeout is bounded at100ms. This is a diagnostic improvement, not proof that the reboot cause is fixed. Brownout/watchdog protections remain enabled; a supply problem cannot be repaired by logging or threshold changes.
+
+STATUS (115200/Newline) prints readable SAFE/WARNING/DANGER/BASELINE REQUIRED or SENSOR ERROR, estimated gas, real temperature/humidity, Wi-Fi, the last database reply and its age, camera/DF initialization, output commands, uptime and free memory. Regular summary output is limited to about once every5s; verbose raw values are gated by GLIPS_DEBUG. Network calls inherited from the original source can delay reports/sampling. Commands, calibration, thresholds, actuators and notification flow remain unchanged. Hardware initialization is not proof of physical operation.
+
+Validation: tests/mq5-diagnostics.py compiles actual reset reason descriptions with host enum stubs. Sampling/baseline/JSON regression still passes. No full ESP toolchain compile, boot reproduction or power/PSRAM validation was available. After uploading, collect the first boot header, last STARTUP stage and any ROM/Guru Meditation output.

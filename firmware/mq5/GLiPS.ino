@@ -15,6 +15,7 @@
 #include <time.h>
 #include <Preferences.h>
 #include "esp_timer.h"
+#include "esp_system.h"
 
 // ==========================================
 // GLiPS ESP32-S3 - FULL SYSTEM
@@ -136,6 +137,9 @@ WebServer server(80);
 httpd_handle_t streamServer = NULL;
 
 // ===== VARIABLES =====
+int lastDatabaseReply = 0;
+unsigned long lastDatabaseReplyAt = 0;
+const bool GLIPS_DEBUG = false;
 enum AlertState { STATE_SAFE, STATE_WARNING, STATE_DANGER };
 AlertState currentState = STATE_SAFE;
 
@@ -479,9 +483,11 @@ bool sendToSupabase() {
   http.addHeader("Prefer", "return=minimal");
 
   String body = buildSupabaseJson();
-  Serial.println("SUPABASE payload includes hardware_outputs");
+  if (GLIPS_DEBUG) Serial.println("SUPABASE payload includes hardware_outputs");
   int code = http.POST(body);
-  Serial.printf("SUPABASE HTTP: %d\n", code);
+  lastDatabaseReply = code;
+  lastDatabaseReplyAt = millis();
+  Serial.printf("DATABASE: %s (HTTP %d)\n", code >= 200 && code < 300 ? "Reading saved" : "Upload failed - see detail below", code);
   if (code < 200 || code >= 300) {
     String detail = http.getString();
     if (strlen(SUPABASE_KEY)) detail.replace(String(SUPABASE_KEY), "[redacted]");
@@ -802,6 +808,7 @@ void handleCapture() {
 // SETUP
 // ==========================================
 // Local diagnostics only. These commands do not change gas outputs.
+void printSystemSummary();
 void handleVoiceDiagnostics() {
   static char command[24];
   static size_t used = 0;
@@ -810,6 +817,7 @@ void handleVoiceDiagnostics() {
     char c = (char)Serial.read();
     if (c == '\r' || c == '\n') {
       command[used] = '\0';
+      if (!overflow && String(command) == "STATUS") printSystemSummary();
       if (!overflow && String(command) == "CALIBRATE_MQ5") calibrateMQ5();
       if (!overflow && String(command) == "TEST_VOICE") playAlarm();
       if (!overflow && String(command) == "TEST_MP3") {
@@ -871,17 +879,72 @@ void changeStatus(bool newDanger) {
 
 void processTelegramAlert() { processTelegramAlerts(); }
 
+const char* resetReasonText(esp_reset_reason_t reason) {
+  switch (reason) {
+    case ESP_RST_POWERON: return "Power on";
+    case ESP_RST_EXT: return "External reset / reset pin";
+    case ESP_RST_SW: return "Software reset";
+    case ESP_RST_PANIC: return "Program crash (panic) - send the backtrace";
+    case ESP_RST_INT_WDT: return "Interrupt watchdog timeout";
+    case ESP_RST_TASK_WDT: return "Task watchdog timeout";
+    case ESP_RST_WDT: return "Watchdog timeout";
+    case ESP_RST_DEEPSLEEP: return "Wake from deep sleep";
+    case ESP_RST_BROWNOUT: return "Supply voltage dropped (brownout)";
+    case ESP_RST_SDIO: return "SDIO reset";
+    default: return "Unknown / not reported";
+  }
+}
+
+void startupStep(const char* label) {
+  Serial.println();
+  Serial.printf("STARTUP: %s | free memory: %u bytes\n", label, (unsigned)ESP.getFreeHeap());
+  Serial.flush();
+}
+
+void printSystemSummary() {
+  Serial.println("\n---------- GLiPS STATUS ----------");
+  const char* state = !sensorValid ? (!isfinite(R0) ? (mq5Calibrating ? "BASELINE IN PROGRESS" : "BASELINE REQUIRED") : "SENSOR ERROR")
+    : currentState == STATE_DANGER ? "DANGER" : currentState == STATE_WARNING ? "WARNING" : "SAFE";
+  Serial.printf("Gas status    : %s\n", state);
+  if (sensorValid) Serial.printf("Gas estimate  : %.1f ppm (experimental, not safety-calibrated)\n", gasPPM);
+  else Serial.println("Gas estimate  : unavailable - do not assume SAFE");
+  if (isfinite(temperature)) Serial.printf("Temperature   : %.1f C\n", temperature);
+  else Serial.println("Temperature   : unavailable - check DHT22");
+  if (isfinite(humidity)) Serial.printf("Humidity      : %.1f %%\n", humidity);
+  else Serial.println("Humidity      : unavailable - check DHT22");
+  Serial.printf("Wi-Fi         : %s\n", WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected");
+  if (lastDatabaseReplyAt == 0) Serial.println("Database      : no upload reply yet");
+  else Serial.printf("Database      : last HTTP %d, %lu seconds ago\n", lastDatabaseReply, (millis() - lastDatabaseReplyAt) / 1000);
+  Serial.printf("Camera        : %s\n", cameraReady ? "Initialized (stream not verified)" : "Not initialized - see startup log");
+  Serial.printf("Speaker module: %s\n", dfReady ? "Detected (sound not verified)" : "Not detected - check power, UART, SD");
+  Serial.printf("Output commands: fan %s | buzzer %s | valve relay %s\n",
+    digitalRead(RELAY_FAN) == FAN_ON ? "ON" : "OFF",
+    digitalRead(BUZZER_PIN) == BUZZER_ON ? "ON" : "OFF",
+    digitalRead(RELAY_VALVE) == HIGH ? "HIGH" : "LOW");
+  Serial.printf("Uptime        : %lu seconds | free memory: %u bytes\n", millis() / 1000, (unsigned)ESP.getFreeHeap());
+  Serial.println("----------------------------------");
+}
+
 void setup() {
   digitalWrite(BUZZER_PIN, BUZZER_OFF);
   pinMode(BUZZER_PIN, OUTPUT);
   buzzerOFFFunction();
 
   Serial.begin(115200);
-  Serial.println("GLiPS MQ5 FULL v10: real ADC + experimental estimate + clean-air baseline");
+  delay(1000);
+  Serial.println("\n==================================");
+  Serial.println("GLiPS MQ5 v11 - STARTING");
+  Serial.printf("Previous reset: %s (code %d)\n", resetReasonText(esp_reset_reason()), (int)esp_reset_reason());
+  Serial.printf("PSRAM detected: %s\n", psramFound() ? "YES" : "NO");
+  if (esp_reset_reason() == ESP_RST_BROWNOUT)
+    Serial.println("ACTION: check stable ESP supply/USB cable and external component power. Brownout protection remains enabled.");
+  Serial.println("==================================");
+  startupStep("1/7 - restore photo settings");
   Serial.println("CAUTION: MQ5 estimated PPM and 80/100 triggers are experimental, not safety-calibrated; AO voltage must be limited to ESP32-S3 ratings");
   restorePhotoLock();
   delay(500);
 
+  startupStep("2/7 - outputs and LED timer");
   digitalWrite(RELAY_FAN, FAN_OFF); pinMode(RELAY_FAN, OUTPUT);
   digitalWrite(RELAY_VALVE, VALVE_RELAY_SAFE); pinMode(RELAY_VALVE, OUTPUT);
 
@@ -894,13 +957,16 @@ void setup() {
   if (esp_timer_create(&indicatorArgs, &indicatorTimer) != ESP_OK || esp_timer_start_periodic(indicatorTimer, 50000) != ESP_OK)
     Serial.println("LED: timer unavailable; loop fallback active");
 
+  startupStep("3/7 - MQ5 baseline and DHT22");
   pinMode(MQ5_PIN, INPUT);
   analogReadResolution(12);
   analogSetPinAttenuation(MQ5_PIN, ADC_11db);
   restoreMQ5Calibration();
   dht.begin();
 
+  startupStep("4/7 - LCD");
   Wire.begin(LCD_SDA, LCD_SCL);
+  Wire.setTimeOut(100);
   lcd.init(); lcd.backlight(); lcd.clear();
 
   buzzerOFFFunction();
@@ -915,6 +981,7 @@ void setup() {
   updateOutputs();
   updateLCD();
 
+  startupStep("5/7 - Wi-Fi");
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.print("Connecting WiFi");
@@ -932,12 +999,14 @@ void setup() {
     Serial.print("IP: "); Serial.println(WiFi.localIP());
   }
 
+  startupStep("6/7 - camera");
   cameraReady = initCamera();
   Serial.println(cameraReady ? "CAMERA READY: /capture and /stream" : "CAMERA ERROR: check OV3660 ribbon, power and GPIO mapping");
   server.on("/capture", handleCapture);
   server.begin();
   startStreamServer();
 
+  startupStep("7/7 - speaker module");
   dfSerial.begin(9600, SERIAL_8N1, DF_RX, DF_TX);
   delay(2000);
   dfReady = dfPlayer.begin(dfSerial, true, true);
@@ -956,6 +1025,8 @@ void setup() {
   lastSensor = millis();
   lastDhtRead = millis() - DHT_INTERVAL;
   lastDbPush = millis();
+  Serial.println("STARTUP COMPLETE - monitoring loop is running");
+  Serial.println("Commands (Newline): STATUS, CALIBRATE_MQ5, TEST_VOICE, CAMERA_STATUS");
 }
 
 // ==========================================
@@ -991,7 +1062,7 @@ void loop() {
     updateOutputs();
     updateLCD();
 
-    Serial.printf("MQ5 ADC: %.0f | GPIO1: %.3f V | AO estimate: %.3f V | Rs: %.3f kOhm | R0: %.3f | PPM estimate: %.2f | STATE: %d\n", lastMQ5.adc, lastMQ5.gpioVoltage, lastMQ5.aoVoltage, lastMQ5.rs, R0, gasPPM, currentState);
+    if (GLIPS_DEBUG) Serial.printf("MQ5 ADC: %.0f | GPIO1: %.3f V | AO estimate: %.3f V | Rs: %.3f kOhm | R0: %.3f | PPM estimate: %.2f | STATE: %d\n", lastMQ5.adc, lastMQ5.gpioVoltage, lastMQ5.aoVoltage, lastMQ5.rs, R0, gasPPM, currentState);
   }
 
   // DHT22 physical measurements; independent >=2.5s interval.
@@ -1004,10 +1075,10 @@ void loop() {
       humidity = h;
       lastDhtGood = now;
       dhtFailures = 0;
-      Serial.printf("DHT22 REAL: T=%.1f C | H=%.1f %%\n", temperature, humidity);
+      if (GLIPS_DEBUG) Serial.printf("DHT22 REAL: T=%.1f C | H=%.1f %%\n", temperature, humidity);
     } else {
       ++dhtFailures;
-      Serial.printf("DHT22 ERROR #%u: check GPIO2, 3.3V, GND, DATA pull-up, sensor type\n", dhtFailures);
+      if (dhtFailures == 1 || dhtFailures % 10 == 0) Serial.printf("DHT22 ERROR #%u: check GPIO2, 3.3V, GND, DATA pull-up, sensor type\n", dhtFailures);
       // Never send a previous or invented measurement as a current one.
       temperature = NAN;
       humidity = NAN;
@@ -1022,5 +1093,10 @@ void loop() {
 
   updateLCD();
   processTelegramAlerts();
+  static unsigned long lastSummary = 0;
+  if (millis() - lastSummary >= 5000) {
+    lastSummary = millis();
+    printSystemSummary();
+  }
   delay(10);
 }
